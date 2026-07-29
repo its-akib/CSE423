@@ -1,0 +1,42 @@
+[
+  {
+    "file_name": "DeviceTypeType.java",
+    "description": "This file defines a simple enumeration representing the SAML Authentication Context device type, restricted to 'hardware' or 'software' values as specified by the underlying XML schema. It provides a value() method to retrieve the schema string for each constant and a fromValue() factory method to parse a schema string back into the matching enum constant. It throws an exception if an unrecognized value is supplied. This type supports SAML authentication context class modeling within Keycloak's SAML protocol implementation."
+  },
+  {
+    "file_name": "IdpConfirmLinkAuthenticator.java",
+    "description": "This file implements an authenticator used during identity broker login when Keycloak detects that an incoming federated identity duplicates an existing local user's attribute, such as email. It presents the user with a confirmation page asking whether to link the new identity to their existing account or update their profile instead. Based on the user's form submission, it either restarts the authentication flow to force a profile update or completes the flow to link the account. This authenticator plays a key role in Keycloak's identity brokering conflict-resolution process."
+  },
+  {
+    "file_name": "ImportTest.java",
+    "description": "This file contains integration tests verifying Keycloak's realm import functionality. It checks that a previously imported 'demo' realm can be deleted without error and that its imported settings, such as access code lifespan and required credentials, match expected values. It also defines helper assertions for validating required credential types and Kerberos-related protocol mapper configuration. The configureTestRealm method loads realm definitions from JSON fixture files and creates them via the admin client before the tests run."
+  },
+  {
+    "file_name": "KeyStoreDefinition.java",
+    "description": "This file defines shared WildFly/JBoss management attribute definitions used to configure keystore settings for Keycloak's SAML subsystem, covering the resource name, password, file location, keystore type, and alias. It aggregates these into aliases and a combined attribute list that includes private key and certificate attributes from related definitions. A static lookup map allows retrieving an attribute definition by its XML tag name. This abstract class centralizes keystore configuration metadata reused by multiple SAML subsystem resource definitions."
+  },
+  {
+    "file_name": "LDAPDnTest.java",
+    "description": "This file contains unit tests for the LDAPDn class, which represents and manipulates LDAP distinguished names (DNs). It verifies correct parsing, string formatting, and escaping of special characters within RDN components, including commas, plus signs, and backslashes. It also tests ancestor/descendant relationship checks between DNs in a case-insensitive manner and validates behavior with empty RDN values and international characters. These tests ensure the DN handling logic behaves correctly across a variety of edge cases encountered in LDAP integrations."
+  },
+  {
+    "file_name": "LoggedInPageHeader.java",
+    "description": "This file implements a Selenium page fragment representing the header shown to logged-in users on Keycloak's account console UI tests. It defines located web elements for the logout button, locale dropdown, and referrer link, each with separate desktop and mobile variants. It overrides accessor methods to return the appropriate element based on whether the page is currently displayed in mobile layout, and implements the mobile kebab menu click action. This class supports UI test automation for account console navigation across different screen sizes."
+  },
+  {
+    "file_name": "MediumType.java",
+    "description": "This file is a JAXB-generated enumeration representing the SAML Authentication Context 'medium' element, with possible values including memory, smartcard, token, mobile device, and mobile auth card. Each enum constant is annotated with its corresponding XML representation for correct marshaling and unmarshaling. It provides a value() accessor and a fromValue() factory method to convert between the enum and its schema string form. This class supports SAML authentication context class modeling and was auto-generated from an XML schema rather than hand-written."
+  },
+  {
+    "file_name": "RealmResourceSPI.java",
+    "description": "This file defines the Service Provider Interface (SPI) that allows extensions to register additional REST sub-resources under a realm's API in Keycloak. It marks itself as an internal SPI and specifies the associated provider and provider factory classes that implementers must supply. Through this SPI, developers can extend Keycloak's Admin or account REST APIs with custom endpoints not built into the core server. It is a small but foundational piece of Keycloak's pluggable provider architecture."
+  },
+  {
+    "file_name": "SAML11AuthorizationDecisionQueryType.java",
+    "description": "This file models the SAML 1.1 AuthorizationDecisionQuery XML type, used to request an authorization decision about whether a subject can perform certain actions on a resource. It extends the base subject query type and holds a list of actions, an optional evidence element, and the resource URI being queried. It provides accessor and mutator methods for the resource and evidence, along with methods to add, remove, and retrieve the associated actions. This class supports Keycloak's legacy SAML 1.1 protocol message handling."
+  },
+  {
+    "file_name": "StringSerializationTest.java",
+    "description": "This file contains unit tests for Keycloak's StringSerialization utility, which serializes and deserializes multiple mixed-type values, including strings, nulls, and URIs, into and from a single delimited string. It verifies correct round-trip behavior when values contain special characters that could conflict with the serialization delimiters, using both colon-based and semicolon-based separator scenarios. It also confirms that deserializing beyond the available values correctly returns null. These tests ensure the serialization format reliably preserves value order, type, and content."
+  }
+]
