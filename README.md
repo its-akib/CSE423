@@ -14,28 +14,28 @@ So far, samples have been selected from the three categories (small, medium, lar
 
 ## Procedure
 
-1. Clone the repository to your local machine.
-2. Open Git Bash and navigate to the cloned repository directory.
-3. The repository initially contains **8,215** Java files, obtained using:
+1. Cloned the repository to my computer.
+2. Opened Git Bash and navigated to the cloned repository directory.
+3. The repository initially contained **8,215** Java files, obtained using:
 
    ```bash
    git ls-files "*.java" | wc -l
    ```
 
-4. List commits made before January 1, 2020:
+4. Listed the commits made before January 1, 2020:
 
    ```bash
    git log --before="2020-01-01"
    ```
 
-5. Select an appropriate commit from the filtered list and check it out:
+5. Selected an appropriate commit from the filtered list and checked it out:
 
    ```bash
    git checkout 56d53b191a50deeecb782a1e4b723e906ad17b4f
    ```
 
-6. After checking out this commit, the repository contains **4,990** Java files.
-7. Sort the Java files by lines of code (LOC) into three categories:
+6. After checking out this commit, the repository contained **4,990** Java files.
+7. Sorted the Java files by lines of code (LOC) into three categories:
 
    | Category | LOC Range |
    |----------|-----------|
@@ -43,7 +43,7 @@ So far, samples have been selected from the three categories (small, medium, lar
    | Medium   | 51–99     |
    | Large    | ≥100      |
 
-8. Apply the sampling formula to pick the required sample, resulting in **9, 10, and 11** samples for the small, medium, and large categories respectively.
+8. Applied the sampling formula to pick the required sample, resulting in **9, 10, and 11** samples for the small, medium, and large categories respectively.
 
 ---
 
@@ -110,7 +110,7 @@ This allocation preserves the original repository's size distribution:
 - Medium: 32.0%
 - Large: 39.2%
 
-...and avoids bias toward any single file-size category.
+and avoids bias toward any single file-size category.
 
 ---
 
