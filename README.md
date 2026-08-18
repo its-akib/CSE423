@@ -249,16 +249,6 @@ Every dependency graph — human and LLM alike — is a single-hub star topology
 
 ---
 
-## 7. Limitations
-
-- **File-local scope** — GED, CC, and CSS are computed per-file, not on a merged whole-codebase call graph; can't detect cross-file reorganization or inheritance-depth shifts.
-- **GED cost model** is a stated convention (2 edits/mismatched leaf), not fixed by the assignment's Appendix.
-- **Normalized centrality** isn't a useful discriminator here — it's `1.0` for every non-isolated file in both datasets by construction.
-- **Repository-selection sub-evidence** — exact commit count (≥500) and an explicit folder listing at the checkout commit were not independently re-confirmed.
-- **Blueprint dependency** — LLM fidelity is bounded by how complete the input JSON blueprint is; blueprint gaps could be misread as LLM structural failure.
-
----
-
 ## 8. Final Submission Checklist & Artifact Index
 
 | Requirement | Status | Location |
