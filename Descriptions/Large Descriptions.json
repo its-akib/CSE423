@@ -1,0 +1,2062 @@
+[
+  {
+    "file_name": "AbstractClientRegistrationTest.java",
+    "description": "FILE PURPOSE AND RESPONSIBILITY: AbstractClientRegistrationTest is an abstract base test class in the Keycloak test suite whose responsibility is to provide shared setup/teardown scaffolding and helper operations for all integration tests that exercise the Client Registration REST/service API. It is not a runnable test itself; concrete subclasses extend it to inherit realm bootstrapping, authenticated client creation helpers, and token-acquisition utilities. Architecturally it sits in the test-suite layer and acts as a Template-Method style fixture: it defines the realm structure (addTestRealms) and reusable auth helper methods that concrete test classes call inside their @Test methods. PACKAGE INFORMATION: Declared in package org.keycloak.testsuite.client, part of the Keycloak testsuite module which contains client/browser/server integration tests; it depends on the client-registration client library module (org.keycloak.client.registration) and the core admin/testsuite base classes. CLASS STRUCTURE: public abstract class AbstractClientRegistrationTest extends AbstractKeycloakTest (no interfaces implemented directly, no generic parameters, no annotations on the class itself). It relies on JUnit lifecycle annotations (@Before/@After) on its own methods. FIELDS: (1) static final String REALM_NAME = 'test' - package/protected-visible constant defining the name of the realm used by all client-registration tests, used throughout the class and by subclasses to reference the fixture realm. (2) ClientRegistration reg - package-visible field holding the client-registration client instance used to perform REST calls against the client registration endpoint; initialized in before() and closed in after(); central dependency used by createClient() and the various auth* helper methods. CONSTRUCTORS: No explicit constructor is declared; the implicit default no-arg constructor is inherited from AbstractKeycloakTest, since this class is only ever instantiated indirectly by JUnit through concrete subclasses. METHODS: before() [public, void, @Before] - builds a new ClientRegistration instance pointed at the test realm's auth server context root and assigns it to `reg`; throws Exception, side effect is opening a client connection. after() [public, void, @After] - closes the `reg` client registration connection; throws Exception, side effect is releasing the HTTP resources. addTestRealms(List<RealmRepresentation>) [public, void, @Override] - overrides the AbstractKeycloakTest hook to construct a single RealmRepresentation named REALM_NAME with several UserRepresentation fixtures (manage-clients, create-clients, no-access, test-user), each with a shared password credential and, for the first two, client role mappings granting AdminRoles.MANAGE_CLIENTS or AdminRoles.CREATE_CLIENT on the realm-management client; adds the realm to the provided list which the test framework imports before the suite runs. createClient(ClientRepresentation) [public, ClientRepresentation, throws ClientRegistrationException] - authenticates as the manage-clients user, delegates to reg.create(client) to register a new OIDC client, then clears the registration auth and returns the created representation. getClient(String) [public, ClientRepresentation] - looks up an existing client by UUID through the shared adminClient REST client scoped to REALM_NAME, catching NotFoundException and returning null when the client does not exist. authCreateClients()/authManageClients()/authNoAccess() [package-private, void] - each obtains a bearer token for a specific fixture user via getToken() and installs it on the `reg` client using Auth.token(...), letting subclasses simulate different authorization levels. getToken(String,String) [private, String] - performs an OAuth2 direct grant (resource owner password) token request against REALM_NAME using the shared `oauth` test helper and the admin-cli client id, returning the access token string, or wrapping any exception as a RuntimeException. METHOD EXECUTION LOGIC: addTestRealms builds a RealmRepresentation, then sequentially constructs four UserRepresentation objects using a shared LinkedList<CredentialRepresentation> for the password credential, differentiating each user by clientRoles maps; the auth* methods branch on which fixture username is used, each calling getToken then reg.auth(Auth.token(token)). DATA FLOW: Input is REALM_NAME plus static fixture usernames/passwords; addTestRealms transforms these into RealmRepresentation/UserRepresentation/CredentialRepresentation objects consumed by the test framework's realm import mechanism; getToken transforms username/password into an access-token string which flows into reg.auth() to authorize subsequent REST calls made through `reg`. OBJECT CREATION: Creates RealmRepresentation, multiple UserRepresentation instances, LinkedList of CredentialRepresentation, CredentialRepresentation (password), and builds a ClientRegistration via its fluent builder (ClientRegistration.create().url(...).build()). EXCEPTION HANDLING: before()/after() declare 'throws Exception' and let JUnit surface failures directly; getClient() catches javax.ws.rs.NotFoundException specifically to represent 'not found' as a null return rather than propagating; getToken() catches a generic Exception from the OAuth flow and rethrows it wrapped in an unchecked RuntimeException so callers of the package-private auth helpers don't need checked-exception handling. DESIGN PATTERNS: Template Method pattern - subclasses inherit fixed setup/teardown behavior and call the protected/package helper methods to vary authorization context; Test Fixture / Builder pattern via ClientRegistration.create()...build(); Facade-like helper methods (createClient, getClient) that hide REST client details from concrete tests. ADVANCED JAVA FEATURES: Generics (List<RealmRepresentation>, List<UserRepresentation>, LinkedList<CredentialRepresentation>), Collections utility methods (Collections.singletonMap, Collections.singletonList), anonymous try/catch exception translation, JUnit annotations as declarative lifecycle hooks. RECONSTRUCTION SUMMARY: A regenerated version of this class must remain an abstract JUnit test base class that owns a ClientRegistration client, provisions a fixed realm with role-differentiated fixture users, exposes protected/package helper methods to create/fetch clients and to switch the authenticated principal used by the registration client, and must integrate with the same AbstractKeycloakTest lifecycle contract.",
+    "imports": [
+      {
+        "import": "org.junit.After",
+        "library": "JUnit",
+        "purpose": "Marks after() as a post-test teardown method."
+      },
+      {
+        "import": "org.junit.Before",
+        "library": "JUnit",
+        "purpose": "Marks before() as a pre-test setup method."
+      },
+      {
+        "import": "org.keycloak.client.registration.Auth",
+        "library": "Project classes",
+        "purpose": "Builds bearer-token auth objects for the ClientRegistration client."
+      },
+      {
+        "import": "org.keycloak.client.registration.ClientRegistration",
+        "library": "Project classes",
+        "purpose": "REST client used to create/manage OIDC clients via the client registration API."
+      },
+      {
+        "import": "org.keycloak.client.registration.ClientRegistrationException",
+        "library": "Project classes",
+        "purpose": "Checked exception thrown by client registration operations."
+      },
+      {
+        "import": "org.keycloak.models.AdminRoles",
+        "library": "Project classes",
+        "purpose": "Supplies constant role names (MANAGE_CLIENTS, CREATE_CLIENT) for fixture user role mappings."
+      },
+      {
+        "import": "org.keycloak.models.Constants",
+        "library": "Project classes",
+        "purpose": "Supplies constant client ids (REALM_MANAGEMENT_CLIENT_ID, ADMIN_CLI_CLIENT_ID)."
+      },
+      {
+        "import": "org.keycloak.representations.idm.ClientRepresentation",
+        "library": "Project classes",
+        "purpose": "DTO representing an OIDC client used by createClient/getClient."
+      },
+      {
+        "import": "org.keycloak.representations.idm.CredentialRepresentation",
+        "library": "Project classes",
+        "purpose": "DTO representing a user's password credential fixture."
+      },
+      {
+        "import": "org.keycloak.representations.idm.RealmRepresentation",
+        "library": "Project classes",
+        "purpose": "DTO representing the realm imported for the test suite."
+      },
+      {
+        "import": "org.keycloak.representations.idm.UserRepresentation",
+        "library": "Project classes",
+        "purpose": "DTO representing fixture users added to the test realm."
+      },
+      {
+        "import": "org.keycloak.testsuite.AbstractKeycloakTest",
+        "library": "Project classes",
+        "purpose": "Base test class providing adminClient, oauth, suiteContext and the realm-import lifecycle."
+      },
+      {
+        "import": "javax.ws.rs.NotFoundException",
+        "library": "Framework dependencies",
+        "purpose": "JAX-RS exception caught to translate a missing client into a null result."
+      },
+      {
+        "import": "java.util.Collections",
+        "library": "Java Standard Library",
+        "purpose": "Builds immutable singleton maps/lists for client role mappings."
+      },
+      {
+        "import": "java.util.LinkedList",
+        "library": "Java Standard Library",
+        "purpose": "Mutable list implementation used for users and credentials collections."
+      },
+      {
+        "import": "java.util.List",
+        "library": "Java Standard Library",
+        "purpose": "Generic list type used for method parameters and fields."
+      }
+    ],
+    "dependency": {
+      "package": "org.keycloak.testsuite.client",
+      "inheritance": {
+        "extends": "AbstractKeycloakTest",
+        "interfaces": []
+      },
+      "annotations": [
+        "@Before",
+        "@After",
+        "@Override"
+      ],
+      "external_libraries": [
+        "JUnit",
+        "JAX-RS (javax.ws.rs)"
+      ],
+      "project_classes": [
+        "AbstractKeycloakTest",
+        "ClientRegistration",
+        "Auth",
+        "ClientRegistrationException",
+        "AdminRoles",
+        "Constants",
+        "ClientRepresentation",
+        "CredentialRepresentation",
+        "RealmRepresentation",
+        "UserRepresentation"
+      ],
+      "field_relationships": [
+        "AbstractClientRegistrationTest depends on ClientRegistration through package-visible field reg",
+        "AbstractClientRegistrationTest depends on the constant REALM_NAME used across all helper methods"
+      ],
+      "constructor_relationships": [
+        "No explicit constructor; relies on inherited AbstractKeycloakTest no-arg construction and JUnit reflection instantiation"
+      ],
+      "method_call_graph": {
+        "before()": [
+          "ClientRegistration.create()",
+          "ClientRegistration.Builder.url()",
+          "ClientRegistration.Builder.build()"
+        ],
+        "after()": [
+          "ClientRegistration.close()"
+        ],
+        "addTestRealms(List)": [
+          "new RealmRepresentation()",
+          "new UserRepresentation()",
+          "new CredentialRepresentation()",
+          "RealmRepresentation.setUsers()",
+          "RealmRepresentation.getUsers().add()"
+        ],
+        "createClient(ClientRepresentation)": [
+          "authManageClients()",
+          "ClientRegistration.create()",
+          "ClientRegistration.auth()"
+        ],
+        "getClient(String)": [
+          "adminClient.realm()",
+          "ClientResource.toRepresentation()"
+        ],
+        "authCreateClients()": [
+          "getToken()",
+          "Auth.token()",
+          "ClientRegistration.auth()"
+        ],
+        "authManageClients()": [
+          "getToken()",
+          "Auth.token()",
+          "ClientRegistration.auth()"
+        ],
+        "authNoAccess()": [
+          "getToken()",
+          "Auth.token()",
+          "ClientRegistration.auth()"
+        ],
+        "getToken(String, String)": [
+          "oauth.doGrantAccessTokenRequest()"
+        ]
+      },
+      "internal_method_dependencies": {
+        "createClient": [
+          "authManageClients"
+        ],
+        "authCreateClients": [
+          "getToken"
+        ],
+        "authManageClients": [
+          "getToken"
+        ],
+        "authNoAccess": [
+          "getToken"
+        ]
+      },
+      "object_creation_dependencies": [
+        "new RealmRepresentation()",
+        "new UserRepresentation()",
+        "new CredentialRepresentation()",
+        "new LinkedList<UserRepresentation>()",
+        "new LinkedList<CredentialRepresentation>()"
+      ],
+      "data_dependencies": [
+        "addTestRealms depends on REALM_NAME and AdminRoles/Constants constants to construct role-mapped fixture users",
+        "getToken depends on hard-coded fixture usernames/passwords supplied by callers to obtain access tokens",
+        "createClient/getClient depend on the ClientRepresentation data passed by concrete subclasses"
+      ],
+      "reverse_dependencies": [
+        "Concrete client-registration test classes in org.keycloak.testsuite.client that extend this class",
+        "Test framework runner (JUnit) that instantiates subclasses and invokes @Before/@After hooks"
+      ]
+    }
+  },
+  {
+    "file_name": "ApplicationsBean.java",
+    "description": "FILE PURPOSE AND RESPONSIBILITY: ApplicationsBean is a Freemarker view-model (bean) used to render the 'Applications' page of Keycloak's account console. Its responsibility is to compute, for the logged-in user, the list of client applications they have a relationship with (roles granted, consent granted, offline-token grants) and to expose that list as ApplicationEntry objects the Freemarker template can iterate over. It sits in the presentation/view-model layer, bridging the KeycloakSession model layer (ClientModel, RoleModel, UserConsentModel) and the account theme templates. PACKAGE INFORMATION: org.keycloak.forms.account.freemarker.model - part of the account console Freemarker model package that supplies POJOs consumed directly by .ftl templates. CLASS STRUCTURE: public class ApplicationsBean (no inheritance, no interfaces) containing two public static nested classes, ApplicationEntry and ClientRoleEntry, that serve as immutable-ish value holders for a single row of the applications table. FIELDS: applications (private List<ApplicationEntry>, initialized to new LinkedList<>()) - the accumulated result set built in the constructor and exposed via getApplications(). CONSTRUCTORS: ApplicationsBean(KeycloakSession, RealmModel, UserModel) - the primary constructor; computes the set of clients with offline tokens for the user, then iterates all applicable ClientModel instances (via private getApplications helper), filtering out admin clients the user cannot manage and clients where the user has no available roles and consent is not required; for each surviving client it computes the client scopes, available roles via TokenManager.getAccess, splits roles into realm vs per-client buckets via processRoles, resolves granted consent scopes, determines whether an offline-token grant applies, and appends a new ApplicationEntry to `applications`. METHODS: isAdminClient(ClientModel) [public static, boolean] - returns true if the client id matches the admin-cli or admin-console reserved client ids. getApplications(KeycloakSession, RealmModel, UserModel) [private, Set<ClientModel>] - collects all non-bearer-only clients of the realm plus any client the user has a non-local consent record for. processRoles(Set<RoleModel>, List<RoleModel>, MultivaluedHashMap<String,ClientRoleEntry>) [private, void] - partitions a role set into realm roles versus per-client role entries, building ClientRoleEntry value objects for the latter. getApplications() [public, List<ApplicationEntry>] - accessor for the computed applications list, called by the Freemarker template. Nested class ApplicationEntry exposes getters (getRealmRolesAvailable, getResourceRolesAvailable, getClientScopesGranted, getEffectiveUrl, getClient, getAdditionalGrants); getEffectiveUrl resolves a relative base URL through ResolveRelative.resolveRelativeUri. Nested class ClientRoleEntry is a plain 4-field value holder with getters only. METHOD EXECUTION LOGIC: The constructor loop first checks isAdminClient+admin permission to skip inaccessible admin clients, computes the union of default and optional client scopes (including the client itself as a scope) to feed TokenManager.getAccess for a conservative 'all potentially available roles' computation, then conditionally skips clients with zero available roles and no consent requirement, then branches on client.isConsentRequired() to look up a UserConsentModel and collect granted scope consent text sorted via OrderedModel.OrderedModelComparator, and finally checks membership in offlineClients to add an '${offlineToken}' pseudo-grant string. DATA FLOW: Inputs are KeycloakSession, RealmModel, UserModel; intermediate objects are Set<ClientModel> (candidate clients), Set<ClientScopeModel> (scope union), Set<RoleModel> (available roles), List<RoleModel>/MultivaluedHashMap<String,ClientRoleEntry> (partitioned roles), List<String> (granted consent scope texts and additional grants); output is the applications List<ApplicationEntry> field consumed by the view layer. OBJECT CREATION: new LinkedList<>() (applications, realmRolesAvailable, orderedScopes), new HashSet<>() (offlineClients derived set, allClientScopes, clients in getApplications), new MultivaluedHashMap<>() (resourceRolesAvailable), new ArrayList<>() (additionalGrants), new ApplicationEntry(...), new ClientRoleEntry(...), new StorageId(client.getId()) used transiently to check locality. EXCEPTION HANDLING: No explicit try/catch blocks; the class relies on the underlying session/model layer to not throw for these read operations; no custom exceptions declared. DESIGN PATTERNS: View-Model / Presentation Model pattern for Freemarker rendering; Value Object pattern for ApplicationEntry and ClientRoleEntry; Builder-like incremental accumulation inside the constructor; Facade over multiple session subsystems (UserSessionManager, TokenManager, AdminPermissions). ADVANCED JAVA FEATURES: Java Streams (orderedScopes.stream().sorted().map().collect(Collectors.toList())), method references (ClientScopeModel::getConsentScreenText, ResourceBean-style static nested classes), generics extensively (MultivaluedHashMap<String, ClientRoleEntry>), static nested classes as data carriers. RECONSTRUCTION SUMMARY: A regenerated class must remain a per-request view-model that, given a session, realm and user, computes the filtered/ordered list of applications visible to that user together with their available realm/client roles, granted consent scopes and offline-token grant flags, exposing the result through nested read-only value classes for template consumption.",
+    "imports": [
+      {
+        "import": "org.keycloak.common.util.MultivaluedHashMap",
+        "library": "Project classes",
+        "purpose": "Multi-valued map used to group ClientRoleEntry objects by client id."
+      },
+      {
+        "import": "org.keycloak.models.ClientModel",
+        "library": "Project classes",
+        "purpose": "Represents an OIDC/SAML client application in the realm."
+      },
+      {
+        "import": "org.keycloak.models.ClientScopeModel",
+        "library": "Project classes",
+        "purpose": "Represents a client scope used to compute available roles and consent text."
+      },
+      {
+        "import": "org.keycloak.models.Constants",
+        "library": "Project classes",
+        "purpose": "Supplies reserved client id constants used by isAdminClient."
+      },
+      {
+        "import": "org.keycloak.models.KeycloakSession",
+        "library": "Project classes",
+        "purpose": "Central session/service-locator object passed through the bean for model access."
+      },
+      {
+        "import": "org.keycloak.models.OrderedModel",
+        "library": "Project classes",
+        "purpose": "Supplies the comparator used to order granted client scopes."
+      },
+      {
+        "import": "org.keycloak.models.RealmModel",
+        "library": "Project classes",
+        "purpose": "Represents the realm whose clients/roles are inspected."
+      },
+      {
+        "import": "org.keycloak.models.RoleModel",
+        "library": "Project classes",
+        "purpose": "Represents a realm or client role available to the user."
+      },
+      {
+        "import": "org.keycloak.models.UserConsentModel",
+        "library": "Project classes",
+        "purpose": "Represents a user's recorded consent grant for a client."
+      },
+      {
+        "import": "org.keycloak.models.UserModel",
+        "library": "Project classes",
+        "purpose": "Represents the logged-in user whose applications are being listed."
+      },
+      {
+        "import": "org.keycloak.protocol.oidc.TokenManager",
+        "library": "Project classes",
+        "purpose": "Computes the set of roles available to a user for a client/scope set."
+      },
+      {
+        "import": "org.keycloak.services.managers.UserSessionManager",
+        "library": "Project classes",
+        "purpose": "Finds clients for which the user holds an offline token."
+      },
+      {
+        "import": "org.keycloak.services.resources.admin.permissions.AdminPermissions",
+        "library": "Project classes",
+        "purpose": "Checks whether the user has admin permissions over the realm."
+      },
+      {
+        "import": "org.keycloak.services.util.ResolveRelative",
+        "library": "Project classes",
+        "purpose": "Resolves a client's relative root/base URL to an absolute effective URL."
+      },
+      {
+        "import": "org.keycloak.storage.StorageId",
+        "library": "Project classes",
+        "purpose": "Determines whether a client id refers to local or federated storage."
+      },
+      {
+        "import": "java.util.ArrayList",
+        "library": "Java Standard Library",
+        "purpose": "Holds the additionalGrants string list."
+      },
+      {
+        "import": "java.util.HashSet",
+        "library": "Java Standard Library",
+        "purpose": "Holds deduplicated client and scope sets."
+      },
+      {
+        "import": "java.util.LinkedList",
+        "library": "Java Standard Library",
+        "purpose": "Holds the ordered applications and realmRolesAvailable lists."
+      },
+      {
+        "import": "java.util.List",
+        "library": "Java Standard Library",
+        "purpose": "Generic list type used throughout."
+      },
+      {
+        "import": "java.util.Set",
+        "library": "Java Standard Library",
+        "purpose": "Generic set type used for clients/roles/scopes."
+      },
+      {
+        "import": "java.util.stream.Collectors",
+        "library": "Java Standard Library",
+        "purpose": "Collects stream results back into lists."
+      }
+    ],
+    "dependency": {
+      "package": "org.keycloak.forms.account.freemarker.model",
+      "inheritance": {
+        "extends": "",
+        "interfaces": []
+      },
+      "annotations": [],
+      "external_libraries": [
+        "Java Streams API"
+      ],
+      "project_classes": [
+        "KeycloakSession",
+        "RealmModel",
+        "UserModel",
+        "ClientModel",
+        "ClientScopeModel",
+        "RoleModel",
+        "UserConsentModel",
+        "TokenManager",
+        "UserSessionManager",
+        "AdminPermissions",
+        "ResolveRelative",
+        "StorageId",
+        "MultivaluedHashMap",
+        "OrderedModel",
+        "Constants"
+      ],
+      "field_relationships": [
+        "ApplicationsBean depends on ApplicationEntry through the private field applications",
+        "ApplicationEntry depends on ClientModel through the final field client",
+        "ApplicationEntry depends on MultivaluedHashMap<String, ClientRoleEntry> through resourceRolesAvailable"
+      ],
+      "constructor_relationships": [
+        "ApplicationsBean requires KeycloakSession, RealmModel and UserModel during initialization to compute applications",
+        "ApplicationEntry requires KeycloakSession, role lists, ClientModel, granted scopes and additional grants during initialization",
+        "ClientRoleEntry requires clientId, clientName, roleName and roleDescription during initialization"
+      ],
+      "method_call_graph": {
+        "ApplicationsBean(session, realm, user)": [
+          "UserSessionManager.findClientsWithOfflineToken()",
+          "getApplications()",
+          "isAdminClient()",
+          "AdminPermissions.realms()",
+          "ClientModel.getClientScopes()",
+          "TokenManager.getAccess()",
+          "processRoles()",
+          "session.users().getConsentByClient()",
+          "new ApplicationEntry()"
+        ],
+        "getApplications(session, realm, user)": [
+          "realm.getClients()",
+          "session.users().getConsents()",
+          "new StorageId()"
+        ],
+        "processRoles(inputRoles, realmRoles, clientRoles)": [
+          "role.getContainer()",
+          "new ClientRoleEntry()"
+        ],
+        "ApplicationEntry.getEffectiveUrl()": [
+          "ResolveRelative.resolveRelativeUri()"
+        ]
+      },
+      "internal_method_dependencies": {
+        "ApplicationsBean_constructor": [
+          "getApplications",
+          "isAdminClient",
+          "processRoles"
+        ]
+      },
+      "object_creation_dependencies": [
+        "new LinkedList<ApplicationEntry>()",
+        "new HashSet<ClientModel>()",
+        "new HashSet<ClientScopeModel>()",
+        "new LinkedList<RoleModel>()",
+        "new MultivaluedHashMap<String, ClientRoleEntry>()",
+        "new LinkedList<ClientScopeModel>()",
+        "new ArrayList<String>()",
+        "new ApplicationEntry(...)",
+        "new ClientRoleEntry(...)",
+        "new StorageId(...)"
+      ],
+      "data_dependencies": [
+        "ApplicationsBean depends on RealmModel client data and UserModel consent/role data to build the applications list",
+        "ApplicationEntry.getEffectiveUrl depends on ClientModel root/base URL data resolved via ResolveRelative"
+      ],
+      "reverse_dependencies": [
+        "Account console Freemarker templates (applications.ftl) that render getApplications()",
+        "Account console Resource/Controller classes that construct ApplicationsBean per request"
+      ]
+    }
+  },
+  {
+    "file_name": "AuthorizationBean.java",
+    "description": "FILE PURPOSE AND RESPONSIBILITY: AuthorizationBean is the Freemarker view-model backing the account console's User-Managed Access (UMA) 'My Resources' page. It exposes the resources a user owns, resources shared with others, resources shared with the user, and pending permission requests, delegating to the authorization service's store layer (ResourceStore, PermissionTicketStore, PolicyStore). It is a presentation-layer aggregator over the authorization subsystem's persistence model. PACKAGE INFORMATION: org.keycloak.forms.account.freemarker.model, alongside ApplicationsBean, forming the account console's Freemarker model layer; depends heavily on org.keycloak.authorization.* packages. CLASS STRUCTURE: public class AuthorizationBean (no inheritance) containing five nested classes: RequesterBean and PermissionScopeBean (static), and ResourceBean, ResourceServerBean, ManagedPermissionBean (non-static inner classes that close over the outer AuthorizationBean's `authorization`/`uriInfo` state). FIELDS: user (final UserModel) - the logged-in user context. authorization (final AuthorizationProvider) - obtained from the session, the entry point to the authorization store factory. uriInfo (final UriInfo) - JAX-RS request URI info used to read the 'resource_id' path parameter. resource (ResourceBean, lazily computed), resources (List<ResourceBean>, lazily computed), userSharedResources, requestsWaitingPermission, resourcesWaitingOthersApproval (Collection<ResourceBean>, all lazily computed caches). CONSTRUCTORS: AuthorizationBean(KeycloakSession, UserModel, UriInfo) - stores user/uriInfo, resolves the AuthorizationProvider from the session, and if a resource_id path parameter is present validates that the resource belongs to the current user, throwing RuntimeException otherwise (an access-control guard). METHODS: getResourcesWaitingOthersApproval()/getResourcesWaitingApproval()/getSharedResources() [public, lazily-memoized Collection<ResourceBean>] - each builds a filter map keyed on PermissionTicket fields (REQUESTER/OWNER/GRANTED) and calls findPermissions then toResourceRepresentation (or, for shared resources, uses the PermissionTicketStore directly). getResources() [public, List<ResourceBean>] - streams the user's owned resources from the ResourceStore, filtering to owner-managed-access resources and mapping to ResourceBean. getResource() [public, ResourceBean] - resolves the single resource referenced by the resource_id path parameter. getResource(String) [private] - constructs a ResourceBean by id lookup. toPermissionRepresentation/toResourceRepresentation [private, Collection] - group PermissionTicket lists into RequesterBean/ResourceBean maps keyed by requester or resource id, filtering out resources that are not owner-managed. findPermissions(Map) [private, List<PermissionTicket>] - thin wrapper over PermissionTicketStore.find. Nested RequesterBean models one requester's aggregate permission state (granted flag derived from ticket + per-scope grants, created/granted dates). Nested PermissionScopeBean wraps a single PermissionTicket's scope-level grant state. Nested ResourceBean exposes resource metadata, scopes, shares, policies (getPolicies filters UMA policies that have no un-fulfilled permission tickets), and its owning ResourceServerBean; addPermission aggregates tickets per-requester via computeIfAbsent. Nested ResourceServerBean wraps a ClientModel to expose resource-server-level metadata (name fallback to clientId, first redirect URI, resolved base URI). Nested ManagedPermissionBean wraps a Policy, exposing its scopes and recursively its associated child policies (memoized). METHOD EXECUTION LOGIC: Most public getters follow a lazy-initialization guard (`if (field == null) { compute; }`) to avoid recomputation within one bean lifecycle; filter maps are built with HashMap<String,String> keyed by PermissionTicket constant field names, then passed to store.find with -1/-1 for unbounded pagination; toResourceRepresentation/toPermissionRepresentation loop over ticket lists, skip resources without owner-managed access, and use computeIfAbsent to lazily build one bean per unique key while accumulating scopes/permissions onto it. DATA FLOW: Input is KeycloakSession + UserModel + JAX-RS UriInfo; intermediate objects are HashMap filter criteria, List<PermissionTicket>/List<Policy> from the store layer; outputs are memoized Collection<ResourceBean>/List<ResourceBean>/ResourceBean structures consumed directly by Freemarker templates. OBJECT CREATION: new HashMap<>() (filters, various), new ResourceBean(...), new ResourceServerBean(...), new RequesterBean(...), new PermissionScopeBean(...), new ManagedPermissionBean(...), new ArrayList<>() (RequesterBean.scopes). EXCEPTION HANDLING: The constructor throws an unchecked RuntimeException with a descriptive message when a user attempts to access a resource_id that is not owned by them - an authorization guard rather than a recoverable error path; no other explicit exception handling is present. DESIGN PATTERNS: View-Model/Presentation Model pattern; lazy-initialization/memoization pattern on nearly every getter; Adapter pattern (nested beans adapt Resource/Policy/PermissionTicket/ClientModel domain objects into template-friendly shapes); Composite-like recursive structure in ManagedPermissionBean.getPolicies. ADVANCED JAVA FEATURES: Java Streams (filter/map/collect, count, findFirst/orElse), method references (ModelToRepresentation::toRepresentation, ResourceBean::new), Map.computeIfAbsent with lambda factory functions, nested (non-static) inner classes capturing outer instance state, varargs-free generic collections. RECONSTRUCTION SUMMARY: A regenerated class must remain a per-request UMA authorization view-model that enforces the owner-only access guard for a single-resource view, exposes lazily computed collections of owned/shared/pending resources sourced from the AuthorizationProvider's store factory, and provides nested adapter value classes mirroring Resource, PermissionTicket, Policy and ClientModel for template rendering.",
+    "imports": [
+      {
+        "import": "java.util.ArrayList",
+        "library": "Java Standard Library",
+        "purpose": "Holds RequesterBean scopes list."
+      },
+      {
+        "import": "java.util.Collection",
+        "library": "Java Standard Library",
+        "purpose": "Generic collection return type for several getters."
+      },
+      {
+        "import": "java.util.Collections",
+        "library": "Java Standard Library",
+        "purpose": "Provides emptyList() when no policies are found."
+      },
+      {
+        "import": "java.util.Date",
+        "library": "Java Standard Library",
+        "purpose": "Represents created/granted timestamps converted from epoch."
+      },
+      {
+        "import": "java.util.HashMap",
+        "library": "Java Standard Library",
+        "purpose": "Backs filter maps and grouping maps."
+      },
+      {
+        "import": "java.util.List",
+        "library": "Java Standard Library",
+        "purpose": "Generic list type for scopes/resources/policies."
+      },
+      {
+        "import": "java.util.Map",
+        "library": "Java Standard Library",
+        "purpose": "Generic map type for filters and permission grouping."
+      },
+      {
+        "import": "java.util.Set",
+        "library": "Java Standard Library",
+        "purpose": "Represents client redirect URI collections."
+      },
+      {
+        "import": "java.util.stream.Collectors",
+        "library": "Java Standard Library",
+        "purpose": "Collects stream results into lists."
+      },
+      {
+        "import": "javax.ws.rs.core.UriInfo",
+        "library": "Framework dependencies",
+        "purpose": "JAX-RS request context used to read the resource_id path parameter."
+      },
+      {
+        "import": "org.keycloak.authorization.AuthorizationProvider",
+        "library": "Project classes",
+        "purpose": "Entry point to the authorization subsystem's store factory."
+      },
+      {
+        "import": "org.keycloak.authorization.model.PermissionTicket",
+        "library": "Project classes",
+        "purpose": "Domain model representing a UMA permission request/grant."
+      },
+      {
+        "import": "org.keycloak.authorization.model.Policy",
+        "library": "Project classes",
+        "purpose": "Domain model representing an authorization policy."
+      },
+      {
+        "import": "org.keycloak.authorization.model.Resource",
+        "library": "Project classes",
+        "purpose": "Domain model representing a protected resource."
+      },
+      {
+        "import": "org.keycloak.authorization.model.Scope",
+        "library": "Project classes",
+        "purpose": "Domain model representing an authorization scope."
+      },
+      {
+        "import": "org.keycloak.authorization.store.PermissionTicketStore",
+        "library": "Project classes",
+        "purpose": "Persistence store used to query permission tickets."
+      },
+      {
+        "import": "org.keycloak.common.util.Time",
+        "library": "Project classes",
+        "purpose": "Converts epoch-second timestamps to java.util.Date."
+      },
+      {
+        "import": "org.keycloak.models.ClientModel",
+        "library": "Project classes",
+        "purpose": "Represents the resource server client wrapped by ResourceServerBean."
+      },
+      {
+        "import": "org.keycloak.models.KeycloakSession",
+        "library": "Project classes",
+        "purpose": "Supplies the AuthorizationProvider via session.getProvider()."
+      },
+      {
+        "import": "org.keycloak.models.RealmModel",
+        "library": "Project classes",
+        "purpose": "Used to resolve users and clients by id within the realm."
+      },
+      {
+        "import": "org.keycloak.models.UserModel",
+        "library": "Project classes",
+        "purpose": "Represents the logged-in user and resource requesters/owners."
+      },
+      {
+        "import": "org.keycloak.models.utils.ModelToRepresentation",
+        "library": "Project classes",
+        "purpose": "Converts Scope domain objects to ScopeRepresentation DTOs."
+      },
+      {
+        "import": "org.keycloak.representations.idm.authorization.ScopeRepresentation",
+        "library": "Project classes",
+        "purpose": "DTO representing an authorization scope for template rendering."
+      },
+      {
+        "import": "org.keycloak.services.util.ResolveRelative",
+        "library": "Project classes",
+        "purpose": "Resolves a resource server's relative base URI to an absolute URI."
+      }
+    ],
+    "dependency": {
+      "package": "org.keycloak.forms.account.freemarker.model",
+      "inheritance": {
+        "extends": "",
+        "interfaces": []
+      },
+      "annotations": [],
+      "external_libraries": [
+        "JAX-RS (javax.ws.rs)",
+        "Java Streams API"
+      ],
+      "project_classes": [
+        "AuthorizationProvider",
+        "PermissionTicket",
+        "Policy",
+        "Resource",
+        "Scope",
+        "PermissionTicketStore",
+        "ClientModel",
+        "KeycloakSession",
+        "RealmModel",
+        "UserModel",
+        "ModelToRepresentation",
+        "ScopeRepresentation",
+        "ResolveRelative",
+        "Time"
+      ],
+      "field_relationships": [
+        "AuthorizationBean depends on AuthorizationProvider through the final field authorization",
+        "AuthorizationBean depends on UserModel through the final field user",
+        "ResourceBean depends on Resource through the field resource and on ResourceServerBean through resourceServer",
+        "ResourceServerBean depends on ClientModel through the field clientModel",
+        "RequesterBean depends on UserModel through the field requester and PermissionScopeBean via scopes",
+        "ManagedPermissionBean depends on Policy through the field policy"
+      ],
+      "constructor_relationships": [
+        "AuthorizationBean requires KeycloakSession, UserModel and UriInfo during initialization",
+        "ResourceBean requires a Resource during initialization to resolve its ResourceServerBean and owner",
+        "RequesterBean requires a PermissionTicket and AuthorizationProvider during initialization",
+        "PermissionScopeBean requires a PermissionTicket during initialization",
+        "ResourceServerBean requires a ClientModel during initialization",
+        "ManagedPermissionBean requires a Policy during initialization"
+      ],
+      "method_call_graph": {
+        "AuthorizationBean(session, user, uriInfo)": [
+          "session.getProvider()",
+          "authorization.getStoreFactory().getResourceStore().findById()"
+        ],
+        "getResourcesWaitingOthersApproval()": [
+          "findPermissions()",
+          "toResourceRepresentation()"
+        ],
+        "getResourcesWaitingApproval()": [
+          "findPermissions()",
+          "toResourceRepresentation()"
+        ],
+        "getResources()": [
+          "authorization.getStoreFactory().getResourceStore().findByOwner()",
+          "new ResourceBean()"
+        ],
+        "getSharedResources()": [
+          "authorization.getStoreFactory().getPermissionTicketStore().find()",
+          "toResourceRepresentation()"
+        ],
+        "getResource()": [
+          "getResource(String)"
+        ],
+        "getResource(String)": [
+          "authorization.getStoreFactory().getResourceStore().findById()",
+          "new ResourceBean()"
+        ],
+        "toResourceRepresentation(tickets)": [
+          "getResource(resourceId)",
+          "ResourceBean.addPermission()"
+        ],
+        "toPermissionRepresentation(permissionRequests)": [
+          "new RequesterBean()",
+          "RequesterBean.addScope()"
+        ],
+        "findPermissions(filters)": [
+          "authorization.getStoreFactory().getPermissionTicketStore().find()"
+        ],
+        "ResourceBean.getShares()": [
+          "findPermissions()",
+          "toPermissionRepresentation()"
+        ],
+        "ResourceBean.getPolicies()": [
+          "authorization.getStoreFactory().getPolicyStore().findByResourceServer()",
+          "authorization.getStoreFactory().getPermissionTicketStore().find()",
+          "new ManagedPermissionBean()"
+        ],
+        "ManagedPermissionBean.getPolicies()": [
+          "policy.getAssociatedPolicies()",
+          "new ManagedPermissionBean()"
+        ]
+      },
+      "internal_method_dependencies": {
+        "getResourcesWaitingOthersApproval": [
+          "findPermissions",
+          "toResourceRepresentation"
+        ],
+        "getResourcesWaitingApproval": [
+          "findPermissions",
+          "toResourceRepresentation"
+        ],
+        "getSharedResources": [
+          "toResourceRepresentation"
+        ],
+        "getResource": [
+          "getResource"
+        ]
+      },
+      "object_creation_dependencies": [
+        "new HashMap<>()",
+        "new ResourceBean(resource)",
+        "new ResourceServerBean(clientModel)",
+        "new RequesterBean(ticket, authorization)",
+        "new PermissionScopeBean(ticket)",
+        "new ManagedPermissionBean(policy)",
+        "new ArrayList<>()"
+      ],
+      "data_dependencies": [
+        "AuthorizationBean depends on PermissionTicket store data filtered by REQUESTER/OWNER/GRANTED to compute pending/shared resource lists",
+        "ResourceBean.getPolicies depends on PolicyStore data filtered by type=uma, resource id and owner id"
+      ],
+      "reverse_dependencies": [
+        "Account console UMA resources Freemarker templates that render getResources()/getSharedResources()/getResource()",
+        "Account console resource endpoint classes that construct AuthorizationBean per request"
+      ]
+    }
+  },
+  {
+    "file_name": "GetRolesCmd.java",
+    "description": "FILE PURPOSE AND RESPONSIBILITY: GetRolesCmd implements the 'get-roles' subcommand of the Keycloak Admin CLI (kcadm). Its responsibility is to translate a rich set of mutually-exclusive command-line options (target user/group/composite-role/client, and available/effective/all flags) into the correct Admin REST API URL for listing realm or client roles, then delegate the actual HTTP GET and output formatting to its superclass GetCmd. It is a Command pattern implementation within the CLI layer. PACKAGE INFORMATION: org.keycloak.client.admin.cli.commands - the command implementations package of the admin-cli client module, alongside sibling *Cmd classes; depends on the cli config/util/operations sub-packages. CLASS STRUCTURE: public class GetRolesCmd extends GetCmd, annotated with @CommandDefinition(name = 'get-roles', description = '[ARGUMENTS]') from the AESH command framework, registering it as a CLI subcommand. FIELDS: eleven package-visible String/boolean fields, each annotated with AESH's @Option, bind CLI flags to Java fields: uusername, uid (user selectors), cclientid, cid (client selectors), rname, rid (composite role selectors), gname, gpath, gid (group selectors), rolename, roleid (specific role selectors), and boolean flags available, effective, all (hasValue = false) controlling which role subset/view is requested. CONSTRUCTORS: No explicit constructor; AESH instantiates the command via its default constructor and injects annotated option fields via reflection. METHODS: initOptions() [package-private, void, overrides GetCmd] - calls super.initOptions() then patches the positional `args` list by prepending a placeholder 'uri' argument so GetCmd's generic argument validation does not fail, since this command computes its URL programmatically instead of taking it positionally. processOptions(CommandInvocation) [package-private, void, overrides GetCmd] - runs a long chain of mutual-exclusivity validations (uid/uusername, gid/gname/gpath pairs, roleid/rolename, rid/rname, cid/cclientid, user-vs-group, user-vs-composite-role, group-vs-composite-role, all-vs-effective, all-vs-available), throwing IllegalArgumentException with a descriptive message on any conflict, then delegates to super.processOptions(). process(CommandInvocation) [public, CommandResult, throws CommandException, InterruptedException, overrides GetCmd] - loads CLI config, resolves the server/realm, obtains a bearer token if credentials are available, and then branches through a large if/else-if chain keyed on isUserSpecified()/isGroupSpecified()/isCompositeRoleSpecified()/isClientSpecified() to resolve missing ids from names (via UserOperations/ClientOperations/GroupOperations/RoleOperations) and to build the correct role-mappings REST path (e.g. users/{uid}/role-mappings/clients/{cid}/available), finally calling super.process(commandInvocation) to execute the resolved URL. isRoleSpecified()/isClientSpecified()/isGroupSpecified()/isCompositeRoleSpecified()/isUserSpecified() [private, boolean] - small predicate helpers used throughout processOptions/process to determine which CLI selectors were supplied. suggestHelp()/nothingToDo()/help() [protected, overrides GetCmd] - trivial hook overrides returning empty string / false / the usage() text respectively. usage() [public static, String] - builds and returns a large multi-line help/usage text via a StringWriter/PrintWriter, documenting every flag and giving example invocations. METHOD EXECUTION LOGIC: process() first ensures auth/config state, then resolves an id from a name for each selector category that was supplied by name rather than id (e.g., UserOperations.getIdFromUsername when only uusername was given), builds a REST path string by string concatenation reflecting the available/effective/all flag combination, and finally hands off to the parent class to perform the actual network call; several branches throw IllegalArgumentException when an incompatible flag combination is used together with composite roles (available/effective not supported there). DATA FLOW: Input is CLI option values populated by AESH from user-typed arguments; intermediate objects are ConfigData (loaded/copied config), a bearer-token String, and a REST path String assigned to super.url; output is a CommandResult produced by GetCmd.process() after issuing the resolved HTTP request. OBJECT CREATION: new ArrayList() (args placeholder list), new StringWriter()/new PrintWriter(sb) inside usage(). EXCEPTION HANDLING: process() declares 'throws CommandException, InterruptedException' and propagates them from the superclass call; processOptions() throws IllegalArgumentException synchronously for every detected invalid combination of CLI flags (a validation-guard pattern) rather than catching exceptions. DESIGN PATTERNS: Command pattern (each *Cmd class, including GetRolesCmd, encapsulates one CLI subcommand invocation); Template Method (GetCmd defines initOptions/processOptions/process hooks that GetRolesCmd overrides and extends via super calls); Strategy-like branching to select the correct REST endpoint based on which selector combination is active; static Utility-class delegation to UserOperations/ClientOperations/GroupOperations/RoleOperations for id-from-name resolution. ADVANCED JAVA FEATURES: Annotation-driven field injection (@Option, @CommandDefinition), static imports (AuthUtil.ensureToken, ConfigUtil.*, HttpUtil.composeResourceUrl, OsUtil.CMD/PROMPT), raw (non-generic) ArrayList usage for args, ternary conditional path construction, StringWriter/PrintWriter for building multi-line text. RECONSTRUCTION SUMMARY: A regenerated class must remain a CLI subcommand that accepts the same set of mutually-exclusive selector/flag options, performs identical validation before executing, resolves names to ids through the same operations helper classes, constructs the equivalent Admin REST role-mappings URL for every selector/flag combination, and delegates the actual request execution and output formatting to the shared GetCmd base class.",
+    "imports": [
+      {
+        "import": "org.jboss.aesh.cl.CommandDefinition",
+        "library": "Third-party libraries",
+        "purpose": "Registers this class as an AESH CLI subcommand named get-roles."
+      },
+      {
+        "import": "org.jboss.aesh.cl.Option",
+        "library": "Third-party libraries",
+        "purpose": "Binds CLI flags to the annotated fields."
+      },
+      {
+        "import": "org.jboss.aesh.console.command.CommandException",
+        "library": "Third-party libraries",
+        "purpose": "Checked exception declared by process() for command failures."
+      },
+      {
+        "import": "org.jboss.aesh.console.command.CommandResult",
+        "library": "Third-party libraries",
+        "purpose": "Return type representing the outcome of executing the command."
+      },
+      {
+        "import": "org.jboss.aesh.console.command.invocation.CommandInvocation",
+        "library": "Third-party libraries",
+        "purpose": "Provides the CLI invocation context passed to processOptions/process."
+      },
+      {
+        "import": "org.keycloak.client.admin.cli.config.ConfigData",
+        "library": "Project classes",
+        "purpose": "Holds loaded CLI configuration (server URL, credentials, realm)."
+      },
+      {
+        "import": "org.keycloak.client.admin.cli.operations.ClientOperations",
+        "library": "Project classes",
+        "purpose": "Resolves a client's id from its clientId via the Admin REST API."
+      },
+      {
+        "import": "org.keycloak.client.admin.cli.operations.GroupOperations",
+        "library": "Project classes",
+        "purpose": "Resolves a group's id from its name or path via the Admin REST API."
+      },
+      {
+        "import": "org.keycloak.client.admin.cli.operations.RoleOperations",
+        "library": "Project classes",
+        "purpose": "Resolves a client role's name from its id via the Admin REST API."
+      },
+      {
+        "import": "org.keycloak.client.admin.cli.operations.UserOperations",
+        "library": "Project classes",
+        "purpose": "Resolves a user's id from its username via the Admin REST API."
+      },
+      {
+        "import": "java.io.PrintWriter",
+        "library": "Java Standard Library",
+        "purpose": "Writes formatted usage text lines into the StringWriter buffer."
+      },
+      {
+        "import": "java.io.StringWriter",
+        "library": "Java Standard Library",
+        "purpose": "Buffers the multi-line usage help text."
+      },
+      {
+        "import": "java.util.ArrayList",
+        "library": "Java Standard Library",
+        "purpose": "Backs the patched args list in initOptions()."
+      },
+      {
+        "import": "org.keycloak.client.admin.cli.util.AuthUtil.ensureToken",
+        "library": "Project classes",
+        "purpose": "Static import obtaining a bearer token from stored/CLI credentials."
+      },
+      {
+        "import": "org.keycloak.client.admin.cli.util.ConfigUtil.DEFAULT_CONFIG_FILE_STRING",
+        "library": "Project classes",
+        "purpose": "Static import supplying the default config file path text for usage help."
+      },
+      {
+        "import": "org.keycloak.client.admin.cli.util.ConfigUtil.credentialsAvailable",
+        "library": "Project classes",
+        "purpose": "Static import checking whether usable credentials exist in config."
+      },
+      {
+        "import": "org.keycloak.client.admin.cli.util.ConfigUtil.loadConfig",
+        "library": "Project classes",
+        "purpose": "Static import loading the CLI configuration file."
+      },
+      {
+        "import": "org.keycloak.client.admin.cli.util.HttpUtil.composeResourceUrl",
+        "library": "Project classes",
+        "purpose": "Static import composing an Admin REST resource URL from parts."
+      },
+      {
+        "import": "org.keycloak.client.admin.cli.util.OsUtil.CMD",
+        "library": "Project classes",
+        "purpose": "Static import supplying the OS-specific CLI executable name for help text."
+      },
+      {
+        "import": "org.keycloak.client.admin.cli.util.OsUtil.PROMPT",
+        "library": "Project classes",
+        "purpose": "Static import supplying the OS-specific shell prompt symbol for help text."
+      }
+    ],
+    "dependency": {
+      "package": "org.keycloak.client.admin.cli.commands",
+      "inheritance": {
+        "extends": "GetCmd",
+        "interfaces": []
+      },
+      "annotations": [
+        "@CommandDefinition",
+        "@Option"
+      ],
+      "external_libraries": [
+        "JBoss AESH CLI framework"
+      ],
+      "project_classes": [
+        "GetCmd",
+        "ConfigData",
+        "ClientOperations",
+        "GroupOperations",
+        "RoleOperations",
+        "UserOperations",
+        "AuthUtil",
+        "ConfigUtil",
+        "HttpUtil",
+        "OsUtil"
+      ],
+      "field_relationships": [
+        "GetRolesCmd depends on eleven @Option-annotated fields to determine which REST role-mappings path to build",
+        "GetRolesCmd depends on inherited GetCmd fields (args, url, adminRestRoot) it mutates in initOptions()/process()"
+      ],
+      "constructor_relationships": [
+        "No explicit constructor; AESH reflection instantiates GetRolesCmd via the implicit default constructor and injects @Option fields"
+      ],
+      "method_call_graph": {
+        "initOptions()": [
+          "super.initOptions()",
+          "args.add()"
+        ],
+        "processOptions(CommandInvocation)": [
+          "isUserSpecified()",
+          "isGroupSpecified()",
+          "isCompositeRoleSpecified()",
+          "isClientSpecified()",
+          "super.processOptions()"
+        ],
+        "process(CommandInvocation)": [
+          "loadConfig()",
+          "copyWithServerInfo()",
+          "setupTruststore()",
+          "ensureAuthInfo()",
+          "credentialsAvailable()",
+          "ensureToken()",
+          "getTargetRealm()",
+          "composeAdminRoot()",
+          "isUserSpecified()",
+          "UserOperations.getIdFromUsername()",
+          "isClientSpecified()",
+          "ClientOperations.getIdFromClientId()",
+          "composeResourceUrl()",
+          "isGroupSpecified()",
+          "GroupOperations.getIdFromName()",
+          "GroupOperations.getIdFromPath()",
+          "isCompositeRoleSpecified()",
+          "isRoleSpecified()",
+          "RoleOperations.getClientRoleNameFromId()",
+          "super.process()"
+        ],
+        "usage()": [
+          "new StringWriter()",
+          "new PrintWriter()",
+          "out.println()"
+        ]
+      },
+      "internal_method_dependencies": {
+        "processOptions": [
+          "isUserSpecified",
+          "isGroupSpecified",
+          "isCompositeRoleSpecified"
+        ],
+        "process": [
+          "isUserSpecified",
+          "isClientSpecified",
+          "isGroupSpecified",
+          "isCompositeRoleSpecified",
+          "isRoleSpecified"
+        ],
+        "help": [
+          "usage"
+        ]
+      },
+      "object_creation_dependencies": [
+        "new ArrayList()",
+        "new StringWriter()",
+        "new PrintWriter(sb)"
+      ],
+      "data_dependencies": [
+        "process() depends on CLI option field values (uusername/uid/cclientid/cid/gname/gpath/gid/rname/rid/rolename/roleid/available/effective/all) to compose the target REST URL",
+        "process() depends on ConfigData server/realm/credentials to authenticate and target the correct realm"
+      ],
+      "reverse_dependencies": [
+        "AESH command registry that discovers and dispatches to GetRolesCmd via @CommandDefinition",
+        "kcadm CLI users invoking 'get-roles' from the command line"
+      ]
+    }
+  },
+  {
+    "file_name": "JWEKeyStorage.java",
+    "description": "FILE PURPOSE AND RESPONSIBILITY: JWEKeyStorage is a mutable data holder used during JSON Web Encryption (JWE) processing to carry the cryptographic keys and content-encryption-key (CEK) material needed to encrypt or decrypt a JWE token. Its responsibility is purely stateful bookkeeping: it stores the asymmetric encryption/decryption keys, the raw and decoded forms of the CEK, and a reference to the JWEEncryptionProvider capable of serializing/deserializing/generating that CEK, lazily delegating to the provider when a decoded key is requested but not yet computed. PACKAGE INFORMATION: org.keycloak.jose.jwe - part of Keycloak's JOSE (JSON Object Signing and Encryption) implementation package, sibling to JWEUtils and the enc/alg provider sub-packages. CLASS STRUCTURE: public class JWEKeyStorage (no inheritance, no interfaces) containing one public nested enum KeyUse with two constants, ENCRYPTION and SIGNATURE, used to disambiguate which purpose a decoded CEK serves. FIELDS: encryptionKey (private Key) - the key used to encrypt the CEK. decryptionKey (private Key) - the key used to decrypt the CEK. cekBytes (private byte[]) - the raw/serialized content encryption key bytes, lazily populated. decodedCEK (private Map<KeyUse, Key>, initialized to new HashMap<>()) - cache of decoded Key objects keyed by their KeyUse. encryptionProvider (private JWEEncryptionProvider) - the algorithm provider used to serialize/deserialize/generate CEK bytes. CONSTRUCTORS: No explicit constructor; the implicit no-arg default constructor is used, and the object is populated entirely through fluent setters. METHODS: getEncryptionKey()/getDecryptionKey() [public, Key] - simple accessors. setEncryptionKey(Key)/ setDecryptionKey(Key) [public, JWEKeyStorage, fluent] - assign the field and return `this` to allow method chaining. setCEKBytes(byte[]) [public, void] - assigns cekBytes directly. getCekBytes() [public, byte[]] - lazily serializes the CEK via encryptionProvider.serializeCEK(this) if cekBytes is not yet set, then returns it. setCEKKey(Key, KeyUse) [public, JWEKeyStorage, fluent] - stores a decoded key in the decodedCEK map keyed by keyUse. getCEKKey(KeyUse, boolean) [public, Key] - looks up a decoded key for the given use; if absent, and an encryptionProvider is set, optionally generates raw CEK bytes (if generateIfNotPresent is true and none exist yet) and then asks the provider to deserialize the CEK into the decodedCEK map; throws IllegalStateException if no encryptionProvider has been configured. generateCekBytes() [private, void] - asks the encryptionProvider for its expected CEK length and generates random secret bytes via JWEUtils.generateSecret(cekLength), assigning the result to cekBytes. setEncryptionProvider(JWEEncryptionProvider) [public, void] - assigns the provider field used by getCekBytes/getCEKKey/generateCekBytes. METHOD EXECUTION LOGIC: getCEKKey performs a cache-check-then-compute sequence: check decodedCEK map, verify encryptionProvider is non-null (else throw), conditionally generate raw bytes if missing and requested, then deserialize via the provider (which is expected to call back into setCEKKey to populate the map), and finally re-read from the map to return the (possibly still null) result. DATA FLOW: Input is Key objects and JWEEncryptionProvider supplied by callers building/parsing a JWE; internal transformation happens through generateCekBytes (delegating byte generation to JWEUtils) and through the encryptionProvider's serializeCEK/deserializeCEK; output is either raw CEK bytes (getCekBytes) or a decoded Key object (getCEKKey) consumed by JWE encryption/decryption routines. OBJECT CREATION: new HashMap<>() for decodedCEK; no other object instantiation occurs directly in this class, byte array generation is delegated to JWEUtils.generateSecret. EXCEPTION HANDLING: getCEKKey throws IllegalStateException with the message 'encryptionProvider needs to be set' when a decoded key is requested but no provider has been configured; no other exceptions are thrown or caught. DESIGN PATTERNS: Fluent Builder / method-chaining pattern (setEncryptionKey/setDecryptionKey/setCEKKey return `this`); lazy-initialization pattern (getCekBytes, getCEKKey); simple Strategy delegation to the pluggable JWEEncryptionProvider for algorithm-specific serialize/deserialize/length logic. ADVANCED JAVA FEATURES: Nested public enum (KeyUse) used as a map key type; generics (Map<KeyUse, Key>); fluent setters returning `this` typed as the declaring class. RECONSTRUCTION SUMMARY: A regenerated class must remain a mutable, fluent key/CEK holder used during JWE processing that lazily serializes/deserializes/generates content-encryption-key material by delegating to an injected JWEEncryptionProvider, distinguishing encryption-use versus signature-use decoded keys via the KeyUse enum, and failing fast with IllegalStateException when no provider is available.",
+    "imports": [
+      {
+        "import": "java.security.Key",
+        "library": "Java Standard Library",
+        "purpose": "Represents cryptographic keys stored for encryption/decryption/CEK use."
+      },
+      {
+        "import": "java.util.HashMap",
+        "library": "Java Standard Library",
+        "purpose": "Backs the decodedCEK cache map."
+      },
+      {
+        "import": "java.util.Map",
+        "library": "Java Standard Library",
+        "purpose": "Generic map type for decodedCEK."
+      },
+      {
+        "import": "org.keycloak.jose.jwe.enc.JWEEncryptionProvider",
+        "library": "Project classes",
+        "purpose": "Pluggable algorithm provider used to serialize/deserialize/generate the CEK."
+      }
+    ],
+    "dependency": {
+      "package": "org.keycloak.jose.jwe",
+      "inheritance": {
+        "extends": "",
+        "interfaces": []
+      },
+      "annotations": [],
+      "external_libraries": [
+        "Java Security API (java.security)"
+      ],
+      "project_classes": [
+        "JWEEncryptionProvider",
+        "JWEUtils"
+      ],
+      "field_relationships": [
+        "JWEKeyStorage depends on JWEEncryptionProvider through the private field encryptionProvider",
+        "JWEKeyStorage depends on the nested enum KeyUse through the decodedCEK map keys"
+      ],
+      "constructor_relationships": [
+        "No explicit constructor; JWEKeyStorage is populated post-construction via fluent setter methods"
+      ],
+      "method_call_graph": {
+        "getCekBytes()": [
+          "encryptionProvider.serializeCEK()"
+        ],
+        "getCEKKey(keyUse, generateIfNotPresent)": [
+          "decodedCEK.get()",
+          "generateCekBytes()",
+          "encryptionProvider.deserializeCEK()"
+        ],
+        "generateCekBytes()": [
+          "encryptionProvider.getExpectedCEKLength()",
+          "JWEUtils.generateSecret()"
+        ],
+        "setCEKKey(key, keyUse)": [
+          "decodedCEK.put()"
+        ]
+      },
+      "internal_method_dependencies": {
+        "getCEKKey": [
+          "generateCekBytes"
+        ]
+      },
+      "object_creation_dependencies": [
+        "new HashMap<KeyUse, Key>()"
+      ],
+      "data_dependencies": [
+        "getCekBytes/getCEKKey depend on the injected JWEEncryptionProvider's algorithm-specific CEK length and (de)serialization logic"
+      ],
+      "reverse_dependencies": [
+        "JWE encryption/decryption pipeline classes (e.g. JWE, JWEHeader processing code) that construct and populate a JWEKeyStorage per token operation",
+        "Concrete JWEEncryptionProvider implementations that read from and write into this storage via serializeCEK/deserializeCEK"
+      ]
+    }
+  },
+  {
+    "file_name": "LDAPObject.java",
+    "description": "FILE PURPOSE AND RESPONSIBILITY: LDAPObject is the in-memory representation of a single LDAP directory entry used throughout Keycloak's LDAP user federation storage provider. Its responsibility is to hold the entry's distinguished name (via LDAPDn), object classes, RDN attribute name, arbitrary multi-valued attributes (both original-case and lower-cased for case-insensitive lookups), read-only attribute markers, and support for LDAP ranged-attribute paging (e.g. Active Directory's attribute;range=0-999 mechanism). It is the core domain object passed between LDAP query/mapping code and the rest of the federation provider. PACKAGE INFORMATION: org.keycloak.storage.ldap.idm.model - the identity-model package of the LDAP storage provider module, representing the low-level LDAP entry abstraction beneath the higher-level UserModel adapter layer. CLASS STRUCTURE: public class LDAPObject (no inheritance, no interfaces) overriding equals(), hashCode() and toString() from Object. FIELDS: logger (private static final Logger) - class logger for warnings. uuid (private String) - the entry's unique identifier used for equality. dn (private LDAPDn) - the distinguished name. rdnAttributeName (private String) - the attribute name used as the relative distinguished name. objectClasses (private final List<String>, LinkedList) - the entry's LDAP objectClass values. readOnlyAttributeNames (private final List<String>, LinkedList) - lower-cased names of attributes that must not be written back to LDAP. attributes (private final Map<String, Set<String>>, HashMap) - the entry's attribute name to multi-value set, preserving original case keys. lowerCasedAttributes (private final Map<String, Set<String>>, HashMap) - a parallel copy keyed by lower-cased attribute name enabling case-insensitive reads. rangedAttributes (private final Map<String, Integer>, HashMap) - tracks the highest range upper-bound seen so far for attributes returned in ranged/paged form by the LDAP server. CONSTRUCTORS: No explicit constructor; relies on the implicit default constructor, with all collection fields eagerly initialized inline. METHODS: getUuid()/setUuid(String), getDn()/setDn(LDAPDn), getObjectClasses()/setObjectClasses(Collection<String>) [clears and repopulates the internal list], getReadOnlyAttributeNames(), addReadOnlyAttributeName(String)/removeReadOnlyAttributeName(String) [normalize to lower-case before storing/removing], getRdnAttributeName()/setRdnAttributeName(String) - standard property accessors. setSingleAttribute(String, String) [public, void] - convenience wrapper that builds a single-element LinkedHashSet and delegates to setAttribute. setAttribute(String, Set<String>) [public, void] - stores the value set under both the original-case key in `attributes` and the lower-cased key in `lowerCasedAttributes`. getAttributeAsString(String) [public, String, case-insensitive] - looks up the lower-cased attribute set, returns null if empty, logs a warning via the class logger if more than one value exists (data-quality signal), and returns the first value otherwise. getAttributeAsSet(String) [public, Set<String>, case-insensitive] - returns a defensive copy (new LinkedHashSet<>) of the matched value set, or null if absent. isRangeComplete(String)/getCurrentRange(String)/isRangeCompleteForAllAttributes() [public, boolean/int] - query the rangedAttributes bookkeeping map. addRangedAttribute(String, int) [public, void] - records the maximum observed range upper bound for an attribute, only updating if the new value is larger. populateRangedAttribute(LDAPObject, String) [public, void] - merges additional ranged values from another LDAPObject page-fetch result into this object's attribute set, updating or clearing the corresponding range bookkeeping entry depending on whether the source page reports the range as complete. getAttributes() [public, Map<String, Set<String>>] - exposes the raw original-case attribute map. equals(Object)/hashCode() [public, @Override] - identity based solely on a non-null uuid field. toString() [public, @Override, String] - builds a diagnostic string embedding dn, uuid, attributes, readOnlyAttributeNames and rangedAttributes. METHOD EXECUTION LOGIC: setAttribute always writes to two parallel maps to keep case-sensitive and case-insensitive views synchronized; getAttributeAsString reads only from the lower-cased map, logs a data-quality warning when multiple values exist for what the caller expects to be a scalar attribute, and returns iterator().next() as the 'first' value; populateRangedAttribute merges a fetched page's new values into the existing set only if the attribute is already tracked, and updates or removes the range marker depending on completeness reported by the source page object. DATA FLOW: Input comes from LDAP query results assembled elsewhere in the federation provider (attribute names/values, dn, uuid, object classes) and is normalized into this object's dual-case attribute maps; output is consumed by mapper classes (username/email/first-name mappers, etc.) and by LDAP create/update/query operations that read getAttributes()/getAttributeAsString()/getAttributeAsSet(). OBJECT CREATION: new LinkedList<>() (objectClasses, readOnlyAttributeNames), new HashMap<>() (attributes, lowerCasedAttributes, rangedAttributes), new LinkedHashSet<>() (in setSingleAttribute and as a defensive copy in getAttributeAsSet). EXCEPTION HANDLING: No exceptions are thrown or caught explicitly; getAttributeAsString uses a warning log (logger.warnf) rather than an exception when data violates the expected single-value contract, favoring graceful degradation over failure. DESIGN PATTERNS: Value Object / Domain Model pattern representing an external LDAP entry; identity-field equals/hashCode pattern (uuid-based equality rather than full-field equality); dual-index caching pattern (original-case plus lower-cased attribute maps) to optimize case-insensitive lookups without repeated case conversion; incremental merge pattern for paginated/ranged attribute fetches. ADVANCED JAVA FEATURES: Generics extensively (Map<String, Set<String>>, Map<String, Integer>), LinkedHashSet for order-preserving defensive copies, static final Logger field, printf-style logging (logger.warnf). RECONSTRUCTION SUMMARY: A regenerated class must remain the canonical in-memory model of an LDAP entry, preserving dual-case attribute storage for case-insensitive access, uuid-based equality, and the range-tracking/merge mechanism required to correctly assemble attributes fetched across multiple LDAP ranged-attribute pages.",
+    "imports": [
+      {
+        "import": "org.jboss.logging.Logger",
+        "library": "Framework dependencies",
+        "purpose": "Class-level logger used to warn about unexpected multi-valued attributes."
+      },
+      {
+        "import": "java.util.Collection",
+        "library": "Java Standard Library",
+        "purpose": "Generic collection type accepted by setObjectClasses."
+      },
+      {
+        "import": "java.util.HashMap",
+        "library": "Java Standard Library",
+        "purpose": "Backs the attributes, lowerCasedAttributes and rangedAttributes maps."
+      },
+      {
+        "import": "java.util.LinkedHashSet",
+        "library": "Java Standard Library",
+        "purpose": "Provides order-preserving sets for single attributes and defensive copies."
+      },
+      {
+        "import": "java.util.LinkedList",
+        "library": "Java Standard Library",
+        "purpose": "Backs the objectClasses and readOnlyAttributeNames lists."
+      },
+      {
+        "import": "java.util.List",
+        "library": "Java Standard Library",
+        "purpose": "Generic list type for objectClasses and readOnlyAttributeNames."
+      },
+      {
+        "import": "java.util.Map",
+        "library": "Java Standard Library",
+        "purpose": "Generic map type for attribute storage."
+      },
+      {
+        "import": "java.util.Set",
+        "library": "Java Standard Library",
+        "purpose": "Generic set type for multi-valued attributes."
+      }
+    ],
+    "dependency": {
+      "package": "org.keycloak.storage.ldap.idm.model",
+      "inheritance": {
+        "extends": "",
+        "interfaces": []
+      },
+      "annotations": [
+        "@Override"
+      ],
+      "external_libraries": [
+        "JBoss Logging"
+      ],
+      "project_classes": [
+        "LDAPDn"
+      ],
+      "field_relationships": [
+        "LDAPObject depends on LDAPDn through the private field dn",
+        "LDAPObject depends on itself (LDAPObject) through the parameter of populateRangedAttribute for cross-page merging"
+      ],
+      "constructor_relationships": [
+        "No explicit constructor; all collection fields are initialized inline at declaration"
+      ],
+      "method_call_graph": {
+        "setSingleAttribute(name, value)": [
+          "new LinkedHashSet<>()",
+          "setAttribute()"
+        ],
+        "setAttribute(name, value)": [
+          "attributes.put()",
+          "lowerCasedAttributes.put()"
+        ],
+        "getAttributeAsString(name)": [
+          "lowerCasedAttributes.get()",
+          "logger.warnf()"
+        ],
+        "getAttributeAsSet(name)": [
+          "lowerCasedAttributes.get()",
+          "new LinkedHashSet<>()"
+        ],
+        "addRangedAttribute(name, max)": [
+          "rangedAttributes.get()",
+          "rangedAttributes.put()"
+        ],
+        "populateRangedAttribute(obj, name)": [
+          "obj.getAttributes()",
+          "attributes.get().addAll()",
+          "obj.isRangeComplete()",
+          "addRangedAttribute()",
+          "rangedAttributes.remove()"
+        ],
+        "equals(obj)": [
+          "getClass().isInstance()",
+          "getUuid().equals()"
+        ],
+        "hashCode()": [
+          "getUuid().hashCode()"
+        ]
+      },
+      "internal_method_dependencies": {
+        "setSingleAttribute": [
+          "setAttribute"
+        ],
+        "populateRangedAttribute": [
+          "isRangeComplete",
+          "addRangedAttribute",
+          "getCurrentRange"
+        ]
+      },
+      "object_creation_dependencies": [
+        "new LinkedList<String>()",
+        "new HashMap<String, Set<String>>()",
+        "new HashMap<String, Integer>()",
+        "new LinkedHashSet<String>()"
+      ],
+      "data_dependencies": [
+        "getAttributeAsString/getAttributeAsSet depend on lowerCasedAttributes populated in lockstep by setAttribute",
+        "populateRangedAttribute depends on another LDAPObject page's attribute values and range-completeness state"
+      ],
+      "reverse_dependencies": [
+        "LDAP query/search executor classes that populate LDAPObject instances from directory search results",
+        "LDAP attribute mapper classes (username/email/name mappers) that read attributes via getAttributeAsString/getAttributeAsSet",
+        "LDAP paging/range-resolution code that calls populateRangedAttribute across successive ranged fetches"
+      ]
+    }
+  },
+  {
+    "file_name": "OIDCLoginProtocolFactory.java",
+    "description": "FILE PURPOSE AND RESPONSIBILITY: OIDCLoginProtocolFactory is the provider-factory implementation that registers the OpenID Connect login protocol with Keycloak's SPI framework. Its responsibilities are threefold: (1) instantiate OIDCLoginProtocol instances bound to a session, (2) statically define and expose the catalog of built-in OIDC protocol mappers (username, email, profile fields, roles, web origins, microprofile-jwt claims, etc.), and (3) create the default OIDC client scopes (profile, email, address, phone, roles, web-origins, microprofile-jwt) and their protocol-mapper wiring whenever a new realm is provisioned. It is a Factory + Registry pattern implementation at the protocol layer. PACKAGE INFORMATION: org.keycloak.protocol.oidc - the OIDC protocol implementation package; extends org.keycloak.protocol.AbstractLoginProtocolFactory from the generic protocol SPI package, and integrates with org.keycloak.models for realm/client/role/scope manipulation. CLASS STRUCTURE: public class OIDCLoginProtocolFactory extends AbstractLoginProtocolFactory (no interfaces declared directly beyond what the superclass implements). FIELDS: logger (private static final Logger). Roughly two dozen public static final String constants naming OIDC/OIDC-mapper identifiers and claim names (USERNAME, EMAIL, EMAIL_VERIFIED, GIVEN_NAME, FAMILY_NAME, MIDDLE_NAME, NICKNAME, PROFILE_CLAIM, PICTURE, WEBSITE, GENDER, BIRTHDATE, ZONEINFO, UPDATED_AT, FULL_NAME, LOCALE, ADDRESS, PHONE_NUMBER, PHONE_NUMBER_VERIFIED, REALM_ROLES, CLIENT_ROLES, AUDIENCE_RESOLVE, ALLOWED_WEB_ORIGINS, UPN, GROUPS), scope-name constants (ROLES_SCOPE, WEB_ORIGINS_SCOPE, MICROPROFILE_JWT_SCOPE), and consent-screen-text placeholder constants (e.g. PROFILE_SCOPE_CONSENT_TEXT). static Map<String, ProtocolMapperModel> builtins - the static registry of built-in mappers populated in a static initializer block. CONSTRUCTORS: No explicit constructor; relies on the implicit default constructor since the SPI framework instantiates factories reflectively. METHODS: create(KeycloakSession) [public, LoginProtocol, @Override] - returns new OIDCLoginProtocol().setSession(session). getBuiltinMappers() [public, Map<String, ProtocolMapperModel>, @Override] - returns the static `builtins` map. createUserAttributeMapper(String, String, String, String) [private static, void] - helper that builds a UserAttributeMapper via createClaimMapper and stores it in `builtins`, used repeatedly by the static initializer for simple user-attribute claims. createDefaultClientScopesImpl(RealmModel) [protected, void, @Override] - builds the standard 'profile', 'email', 'address', 'phone' ClientScopeModel instances, sets their metadata, attaches the appropriate builtin protocol mappers to each, registers them as default (profile/email) or optional (address/phone) client scopes on the realm, conditionally wires the pre-existing offline_access role into an offline_access client scope if not already present, and calls addRolesClientScope/addWebOriginsClientScope/addMicroprofileJWTClientScope. addRolesClientScope(RealmModel) [public static, ClientScopeModel] - idempotently creates (or returns the existing) 'roles' client scope, wiring realm roles/client roles/audience-resolve mappers and registering it as a default scope. addWebOriginsClientScope(RealmModel) [public static, ClientScopeModel] - idempotently creates (or returns the existing) 'web-origins' scope wired to the allowed-web-origins mapper, hidden from the consent screen, registered as default. addMicroprofileJWTClientScope(RealmModel) [public static, ClientScopeModel] - idempotently creates (or returns) the 'microprofile-jwt' optional scope wired to UPN and GROUPS mappers. addDefaults(ClientModel) [protected, void, @Override] - empty no-op hook. createProtocolEndpoint(RealmModel, EventBuilder) [public, Object, @Override] - returns new OIDCLoginProtocolService(realm, event), the JAX-RS resource handling protocol endpoints. getId() [public, String, @Override] - returns OIDCLoginProtocol.LOGIN_PROTOCOL, the SPI provider id. setupClientDefaults(ClientRepresentation, ClientModel) [public, void, @Override] - applies sensible defaults to a newly registered client representation: derives a wildcard redirect URI and web origin from rootUrl when none were given, defaults publicClient/bearerOnly/managementUrl/standardFlowEnabled/directAccessGrantsEnabled/implicitFlowEnabled/frontchannelLogout when unset, and preserves backwards compatibility for the deprecated directGrantsOnly flag by translating it into standardFlowEnabled/directAccessGrantsEnabled and logging a deprecation warning. METHOD EXECUTION LOGIC: The static initializer block builds ~25 ProtocolMapperModel instances via UserPropertyMapper/UserAttributeMapper/FullNameMapper/AddressMapper/UserSessionNoteMapper/UserRealmRoleMappingMapper/UserClientRoleMappingMapper/AudienceResolveProtocolMapper/AllowedWebOriginsProtocolMapper factory calls, keying each into the shared `builtins` map exactly once at class-load time; createDefaultClientScopesImpl and the three addXClientScope helpers all follow a lookup-or-create idempotency pattern using KeycloakModelUtils.getClientScopeByName to avoid duplicating scopes on repeated realm setup/import; setupClientDefaults applies a sequence of null-check-then-default assignments and a special-case branch for the deprecated isDirectGrantsOnly flag. DATA FLOW: Input is a RealmModel (for scope creation methods) or ClientRepresentation/ClientModel (for setupClientDefaults); intermediate objects are ClientScopeModel and ProtocolMapperModel instances pulled from or added to the static `builtins` map and the realm's client-scope collection; output is realm/client state mutated in place (no return value carries data other than the created/found ClientScopeModel references). OBJECT CREATION: new OIDCLoginProtocol(), new OIDCLoginProtocolService(realm, event), new HashMap<>() (builtins), new HashSet<String>() (origins in setupClientDefaults), plus numerous ProtocolMapperModel instances built via static factory methods on mapper classes (not directly `new`'d here). EXCEPTION HANDLING: No explicit try/catch or thrown exceptions in this class; relies on the underlying model layer's own exception behavior. Uses defensive null checks throughout setupClientDefaults instead of exceptions. DESIGN PATTERNS: Factory pattern (SPI ProviderFactory implementation creating LoginProtocol instances); Registry pattern (static `builtins` map of protocol mappers); Template Method (overrides hooks defined by AbstractLoginProtocolFactory: createDefaultClientScopesImpl, addDefaults, setupClientDefaults); Idempotent-create-or-get pattern for client scopes to support safe re-invocation during realm import; static initializer block acting as an eager Singleton-style registry population. ADVANCED JAVA FEATURES: Static initializer block, static nested constant/field declarations, static imports (ImpersonationSessionNote.IMPERSONATOR_ID/IMPERSONATOR_USERNAME), extensive use of static factory methods on mapper classes, printf-style debug logging (logger.debugf/debugv). RECONSTRUCTION SUMMARY: A regenerated class must remain the OIDC protocol's SPI factory: it must expose the same catalog of built-in protocol mapper ids via a static registry, idempotently provision the standard OIDC default/optional client scopes (profile, email, address, phone, roles, web-origins, microprofile-jwt) with their exact mapper wiring on realm creation, and apply the same default-value and backwards-compatibility logic when a new OIDC client is registered.",
+    "imports": [
+      {
+        "import": "org.jboss.logging.Logger",
+        "library": "Framework dependencies",
+        "purpose": "Class logger for debug/deprecation messages."
+      },
+      {
+        "import": "org.keycloak.OAuth2Constants",
+        "library": "Project classes",
+        "purpose": "Supplies standard OAuth2/OIDC scope name constants (SCOPE_PROFILE, SCOPE_EMAIL, etc.) and OFFLINE_ACCESS."
+      },
+      {
+        "import": "org.keycloak.common.constants.KerberosConstants",
+        "library": "Project classes",
+        "purpose": "Supplies the GSS delegation credential claim/session-note constant."
+      },
+      {
+        "import": "org.keycloak.common.util.UriUtils",
+        "library": "Project classes",
+        "purpose": "Derives the web origin from a client's root URL."
+      },
+      {
+        "import": "org.keycloak.events.EventBuilder",
+        "library": "Project classes",
+        "purpose": "Passed into createProtocolEndpoint to build the OIDC protocol REST service."
+      },
+      {
+        "import": "org.keycloak.models.ClientModel",
+        "library": "Project classes",
+        "purpose": "Represents the client being configured with protocol defaults."
+      },
+      {
+        "import": "org.keycloak.models.ClientScopeModel",
+        "library": "Project classes",
+        "purpose": "Represents the client scopes created for the realm."
+      },
+      {
+        "import": "org.keycloak.models.Constants",
+        "library": "Project classes",
+        "purpose": "Supplies the offline-access scope consent-text constant."
+      },
+      {
+        "import": "org.keycloak.models.KeycloakSession",
+        "library": "Project classes",
+        "purpose": "Session passed to create() when instantiating the protocol."
+      },
+      {
+        "import": "org.keycloak.models.ProtocolMapperModel",
+        "library": "Project classes",
+        "purpose": "Represents a single protocol mapper configuration stored in the builtins registry."
+      },
+      {
+        "import": "org.keycloak.models.RealmModel",
+        "library": "Project classes",
+        "purpose": "Represents the realm on which default client scopes are created."
+      },
+      {
+        "import": "org.keycloak.models.RoleModel",
+        "library": "Project classes",
+        "purpose": "Represents the offline_access role looked up when wiring the offline-access scope."
+      },
+      {
+        "import": "org.keycloak.models.utils.DefaultClientScopes",
+        "library": "Project classes",
+        "purpose": "Creates the offline-access client scope when missing."
+      },
+      {
+        "import": "org.keycloak.models.utils.KeycloakModelUtils",
+        "library": "Project classes",
+        "purpose": "Looks up an existing client scope by name for idempotent creation."
+      },
+      {
+        "import": "org.keycloak.protocol.AbstractLoginProtocolFactory",
+        "library": "Project classes",
+        "purpose": "Base class defining the login-protocol factory SPI contract this class implements."
+      },
+      {
+        "import": "org.keycloak.protocol.LoginProtocol",
+        "library": "Project classes",
+        "purpose": "Return type of create(), representing an instantiated login protocol handler."
+      },
+      {
+        "import": "org.keycloak.protocol.oidc.mappers.AddressMapper",
+        "library": "Project classes",
+        "purpose": "Builtin mapper factory for the address claim."
+      },
+      {
+        "import": "org.keycloak.protocol.oidc.mappers.AllowedWebOriginsProtocolMapper",
+        "library": "Project classes",
+        "purpose": "Builtin mapper factory for allowed web origins."
+      },
+      {
+        "import": "org.keycloak.protocol.oidc.mappers.AudienceResolveProtocolMapper",
+        "library": "Project classes",
+        "purpose": "Builtin mapper factory for audience resolution."
+      },
+      {
+        "import": "org.keycloak.protocol.oidc.mappers.FullNameMapper",
+        "library": "Project classes",
+        "purpose": "Builtin mapper factory for the combined full-name claim."
+      },
+      {
+        "import": "org.keycloak.protocol.oidc.mappers.UserAttributeMapper",
+        "library": "Project classes",
+        "purpose": "Builtin mapper factory for generic user-attribute claims."
+      },
+      {
+        "import": "org.keycloak.protocol.oidc.mappers.UserClientRoleMappingMapper",
+        "library": "Project classes",
+        "purpose": "Builtin mapper factory for client role claims."
+      },
+      {
+        "import": "org.keycloak.protocol.oidc.mappers.UserPropertyMapper",
+        "library": "Project classes",
+        "purpose": "Builtin mapper factory for user property claims (username, email, names)."
+      },
+      {
+        "import": "org.keycloak.protocol.oidc.mappers.UserRealmRoleMappingMapper",
+        "library": "Project classes",
+        "purpose": "Builtin mapper factory for realm role claims and groups."
+      },
+      {
+        "import": "org.keycloak.protocol.oidc.mappers.UserSessionNoteMapper",
+        "library": "Project classes",
+        "purpose": "Builtin mapper factory for session-note-derived claims (Kerberos, impersonator info)."
+      },
+      {
+        "import": "org.keycloak.representations.IDToken",
+        "library": "Project classes",
+        "purpose": "Supplies standard ID token claim name constants used when registering mappers."
+      },
+      {
+        "import": "org.keycloak.representations.idm.ClientRepresentation",
+        "library": "Project classes",
+        "purpose": "Input DTO whose flags drive setupClientDefaults."
+      },
+      {
+        "import": "org.keycloak.services.ServicesLogger",
+        "library": "Project classes",
+        "purpose": "Logs the deprecated-directGrantsOnly usage warning."
+      },
+      {
+        "import": "java.util.HashMap",
+        "library": "Java Standard Library",
+        "purpose": "Backs the static builtins mapper registry."
+      },
+      {
+        "import": "java.util.HashSet",
+        "library": "Java Standard Library",
+        "purpose": "Backs the derived web-origins set in setupClientDefaults."
+      },
+      {
+        "import": "java.util.Map",
+        "library": "Java Standard Library",
+        "purpose": "Generic map type for builtins/getBuiltinMappers."
+      },
+      {
+        "import": "java.util.Set",
+        "library": "Java Standard Library",
+        "purpose": "Generic set type for web origins."
+      },
+      {
+        "import": "org.keycloak.models.ImpersonationSessionNote.IMPERSONATOR_ID",
+        "library": "Project classes",
+        "purpose": "Static import naming the impersonator-id session note/claim."
+      },
+      {
+        "import": "org.keycloak.models.ImpersonationSessionNote.IMPERSONATOR_USERNAME",
+        "library": "Project classes",
+        "purpose": "Static import naming the impersonator-username session note/claim."
+      }
+    ],
+    "dependency": {
+      "package": "org.keycloak.protocol.oidc",
+      "inheritance": {
+        "extends": "AbstractLoginProtocolFactory",
+        "interfaces": []
+      },
+      "annotations": [
+        "@Override"
+      ],
+      "external_libraries": [
+        "JBoss Logging"
+      ],
+      "project_classes": [
+        "AbstractLoginProtocolFactory",
+        "OIDCLoginProtocol",
+        "OIDCLoginProtocolService",
+        "KeycloakSession",
+        "RealmModel",
+        "ClientModel",
+        "ClientScopeModel",
+        "ProtocolMapperModel",
+        "RoleModel",
+        "ClientRepresentation",
+        "EventBuilder",
+        "KeycloakModelUtils",
+        "DefaultClientScopes",
+        "UserPropertyMapper",
+        "UserAttributeMapper",
+        "FullNameMapper",
+        "AddressMapper",
+        "UserSessionNoteMapper",
+        "UserRealmRoleMappingMapper",
+        "UserClientRoleMappingMapper",
+        "AudienceResolveProtocolMapper",
+        "AllowedWebOriginsProtocolMapper",
+        "OAuth2Constants",
+        "Constants",
+        "IDToken",
+        "ServicesLogger",
+        "KerberosConstants",
+        "UriUtils"
+      ],
+      "field_relationships": [
+        "OIDCLoginProtocolFactory depends on ProtocolMapperModel through the static builtins map",
+        "createDefaultClientScopesImpl depends on ClientScopeModel instances created on the passed-in RealmModel"
+      ],
+      "constructor_relationships": [
+        "No explicit constructor; SPI framework instantiates via reflection as a ProviderFactory"
+      ],
+      "method_call_graph": {
+        "create(session)": [
+          "new OIDCLoginProtocol()",
+          "OIDCLoginProtocol.setSession()"
+        ],
+        "getBuiltinMappers()": [],
+        "createUserAttributeMapper(name, attrName, claimName, type)": [
+          "UserAttributeMapper.createClaimMapper()",
+          "builtins.put()"
+        ],
+        "createDefaultClientScopesImpl(newRealm)": [
+          "newRealm.addClientScope()",
+          "ClientScopeModel.addProtocolMapper()",
+          "newRealm.addDefaultClientScope()",
+          "newRealm.getRole()",
+          "KeycloakModelUtils.getClientScopeByName()",
+          "DefaultClientScopes.createOfflineAccessClientScope()",
+          "addRolesClientScope()",
+          "addWebOriginsClientScope()",
+          "addMicroprofileJWTClientScope()"
+        ],
+        "addRolesClientScope(newRealm)": [
+          "KeycloakModelUtils.getClientScopeByName()",
+          "newRealm.addClientScope()",
+          "ClientScopeModel.addProtocolMapper()",
+          "newRealm.addDefaultClientScope()",
+          "logger.debugf()"
+        ],
+        "addWebOriginsClientScope(newRealm)": [
+          "KeycloakModelUtils.getClientScopeByName()",
+          "newRealm.addClientScope()",
+          "ClientScopeModel.addProtocolMapper()",
+          "newRealm.addDefaultClientScope()",
+          "logger.debugf()"
+        ],
+        "addMicroprofileJWTClientScope(newRealm)": [
+          "KeycloakModelUtils.getClientScopeByName()",
+          "newRealm.addClientScope()",
+          "ClientScopeModel.addProtocolMapper()",
+          "newRealm.addDefaultClientScope()",
+          "logger.debugf()"
+        ],
+        "createProtocolEndpoint(realm, event)": [
+          "new OIDCLoginProtocolService()"
+        ],
+        "setupClientDefaults(rep, newClient)": [
+          "UriUtils.getOrigin()",
+          "newClient.addRedirectUri()",
+          "newClient.setWebOrigins()",
+          "newClient.setPublicClient()",
+          "newClient.setBearerOnly()",
+          "newClient.setManagementUrl()",
+          "ServicesLogger.LOGGER.usingDeprecatedDirectGrantsOnly()",
+          "newClient.setStandardFlowEnabled()",
+          "newClient.setDirectAccessGrantsEnabled()",
+          "newClient.setImplicitFlowEnabled()",
+          "newClient.setFrontchannelLogout()"
+        ]
+      },
+      "internal_method_dependencies": {
+        "createDefaultClientScopesImpl": [
+          "addRolesClientScope",
+          "addWebOriginsClientScope",
+          "addMicroprofileJWTClientScope"
+        ]
+      },
+      "object_creation_dependencies": [
+        "new OIDCLoginProtocol()",
+        "new OIDCLoginProtocolService(realm, event)",
+        "new HashMap<String, ProtocolMapperModel>()",
+        "new HashSet<String>()"
+      ],
+      "data_dependencies": [
+        "createDefaultClientScopesImpl depends on the static builtins registry to attach the correct protocol mappers to each default client scope",
+        "setupClientDefaults depends on ClientRepresentation flags (rootUrl, redirectUris, bearerOnly, publicClient, adminUrl, directGrantsOnly, standardFlowEnabled, directAccessGrantsEnabled, implicitFlowEnabled, frontchannelLogout) to compute ClientModel defaults"
+      ],
+      "reverse_dependencies": [
+        "Keycloak's provider/SPI loader that discovers OIDCLoginProtocolFactory as a LoginProtocolFactory implementation",
+        "Realm import/creation code paths that invoke createDefaultClientScopesImpl for every new realm",
+        "Client registration/admin endpoints that invoke setupClientDefaults for every new OIDC client"
+      ]
+    }
+  },
+  {
+    "file_name": "PersonalInfoTest.java",
+    "description": "FILE PURPOSE AND RESPONSIBILITY: PersonalInfoTest is a UI integration test (Arquillian Graphene based) that verifies the behavior of the account console's 'Personal Info' page: editing and saving username/email/first name/last name, per-field validation, duplicate-username/email handling, and the editUsernameAllowed realm toggle's effect on whether the username field can be edited. It belongs to the browser-driven UI test layer of the Keycloak test suite. PACKAGE INFORMATION: org.keycloak.testsuite.ui.account2 - the account-console v2 UI test package, depending on the page-object classes in org.keycloak.testsuite.ui.account2.page. CLASS STRUCTURE: public class PersonalInfoTest extends BaseAccountPageTest (no interfaces). FIELDS: personalInfoPage (private PersonalInfoPage, annotated @Page) - Arquillian Graphene injects the page-object bound to the Personal Info page. testUser2 (private UserRepresentation) - a second fixture user used to test duplicate-value validation and value-switching scenarios. CONSTRUCTORS: No explicit constructor; inherited from BaseAccountPageTest via the implicit default constructor, instantiated by the JUnit/Arquillian runner. METHODS: setTestUser() [public, void, @Before] - builds testUser2 with fixed username/email/first/last name values and removes any pre-existing user with that username via ApiUtil.removeUserByUsername to keep tests idempotent. getAccountPage() [protected, AbstractLoggedInPage, @Override] - returns personalInfoPage, satisfying the abstract hook from BaseAccountPageTest that identifies which page object this test class operates on. updateUserInfo() [public, void, @Test] - enables username editing, asserts the page reflects the primary testUser, exercises the save-disabled/enabled state, sets all values to testUser2's, saves, asserts a success alert, reloads the page and re-asserts values, then repeats a partial-field update (first/last name only) and re-verifies. formValidationTest() [public, void, @Test] - enables username editing, then for username/email/first name/last name in turn clears the field, asserts the corresponding validity flag is false, restores a valid value, asserts validity true; then creates testUser2 via the Admin API and attempts to save duplicate username and duplicate email values, asserting a danger alert each time and that no changes persisted after reload. disabledEditUsername() [public, void, @Test] - disables username editing, asserts the username field is disabled, sets non-username values from testUser2, saves, asserts success, restores testUser2's username to the original testUser's username (since it should remain unchanged), reloads and re-verifies values. setEditUsernameAllowed(boolean) [private, void] - toggles the realm's editUsernameAllowed setting via the Admin REST client and refreshes the browser page to apply the change. METHOD EXECUTION LOGIC: Each @Test method follows an Arrange-Act-Assert sequence driven entirely through the PersonalInfoPage page-object API (setValues/setUsername/setEmail/setFirstName/setLastName/clickSave/navigateTo/alert()/assertX methods); formValidationTest interleaves field-by-field clear/assert/restore cycles before moving to duplicate-value save attempts; disabledEditUsername reuses updateUserInfo-style flow but forces testUser2's username back to the original before comparison, encoding the expected read-only behavior. DATA FLOW: Input is the realm/test fixtures (testUser inherited from BaseAccountPageTest, testUser2 built locally) and the live account console page state; the tests read/write page form field values through the PersonalInfoPage object and compare them against UserRepresentation DTOs (valuesEqual); output is JUnit assertion pass/fail plus REST-driven realm/user configuration changes as a side effect of setEditUsernameAllowed and ApiUtil calls. OBJECT CREATION: new UserRepresentation() for testUser2, populated via setters. EXCEPTION HANDLING: No explicit try/catch blocks; JUnit assertion failures (assertTrue) and any runtime exceptions from the Admin REST client or Graphene page interactions propagate directly and fail the test. DESIGN PATTERNS: Page Object pattern (PersonalInfoPage, AbstractLoggedInPage encapsulate DOM interaction details away from the test class); Template Method (BaseAccountPageTest defines shared setup and the abstract getAccountPage() hook this class implements); Arrange-Act-Assert test structuring. ADVANCED JAVA FEATURES: Field injection via the @Page annotation (Arquillian Graphene), static imports (Assert.assertTrue, UIUtils.refreshPageAndWaitForLoad), standard JUnit lifecycle annotations (@Before, @Test). RECONSTRUCTION SUMMARY: A regenerated class must remain a UI integration test exercising the Personal Info page's save/validation/duplicate-detection/username-lock behaviors through the same page-object abstractions and Admin REST fixture setup, preserving the three distinct @Test scenarios and their assertions.",
+    "imports": [
+      {
+        "import": "org.jboss.arquillian.graphene.page.Page",
+        "library": "Third-party libraries",
+        "purpose": "Injects the PersonalInfoPage page-object field."
+      },
+      {
+        "import": "org.junit.Before",
+        "library": "JUnit",
+        "purpose": "Marks setTestUser() as pre-test setup."
+      },
+      {
+        "import": "org.junit.Test",
+        "library": "JUnit",
+        "purpose": "Marks the three test methods as executable JUnit tests."
+      },
+      {
+        "import": "org.keycloak.representations.idm.RealmRepresentation",
+        "library": "Project classes",
+        "purpose": "DTO used to read/update the realm's editUsernameAllowed setting."
+      },
+      {
+        "import": "org.keycloak.representations.idm.UserRepresentation",
+        "library": "Project classes",
+        "purpose": "DTO representing testUser2 and used for value comparisons."
+      },
+      {
+        "import": "org.keycloak.testsuite.admin.ApiUtil",
+        "library": "Project classes",
+        "purpose": "Provides removeUserByUsername/createUserWithAdminClient helper operations."
+      },
+      {
+        "import": "org.keycloak.testsuite.ui.account2.page.AbstractLoggedInPage",
+        "library": "Project classes",
+        "purpose": "Base page-object type returned by getAccountPage()."
+      },
+      {
+        "import": "org.keycloak.testsuite.ui.account2.page.PersonalInfoPage",
+        "library": "Project classes",
+        "purpose": "Page-object exposing the Personal Info form's interaction API."
+      },
+      {
+        "import": "org.junit.Assert.assertTrue",
+        "library": "JUnit",
+        "purpose": "Static import used to assert page field values match expected UserRepresentation values."
+      },
+      {
+        "import": "org.keycloak.testsuite.util.UIUtils.refreshPageAndWaitForLoad",
+        "library": "Project classes",
+        "purpose": "Static import used to reload the browser page after changing realm settings."
+      }
+    ],
+    "dependency": {
+      "package": "org.keycloak.testsuite.ui.account2",
+      "inheritance": {
+        "extends": "BaseAccountPageTest",
+        "interfaces": []
+      },
+      "annotations": [
+        "@Page",
+        "@Before",
+        "@Test",
+        "@Override"
+      ],
+      "external_libraries": [
+        "JUnit",
+        "Arquillian Graphene"
+      ],
+      "project_classes": [
+        "BaseAccountPageTest",
+        "PersonalInfoPage",
+        "AbstractLoggedInPage",
+        "RealmRepresentation",
+        "UserRepresentation",
+        "ApiUtil"
+      ],
+      "field_relationships": [
+        "PersonalInfoTest depends on PersonalInfoPage through the @Page-injected field personalInfoPage",
+        "PersonalInfoTest depends on UserRepresentation through the field testUser2"
+      ],
+      "constructor_relationships": [
+        "No explicit constructor; instantiated by the JUnit/Arquillian test runner via the inherited default constructor"
+      ],
+      "method_call_graph": {
+        "setTestUser()": [
+          "new UserRepresentation()",
+          "ApiUtil.removeUserByUsername()"
+        ],
+        "getAccountPage()": [],
+        "updateUserInfo()": [
+          "setEditUsernameAllowed()",
+          "personalInfoPage.valuesEqual()",
+          "personalInfoPage.assertUsernameDisabled()",
+          "personalInfoPage.assertSaveDisabled()",
+          "personalInfoPage.setValues()",
+          "personalInfoPage.clickSave()",
+          "personalInfoPage.alert().assertSuccess()",
+          "personalInfoPage.navigateTo()"
+        ],
+        "formValidationTest()": [
+          "setEditUsernameAllowed()",
+          "personalInfoPage.setUsername()",
+          "personalInfoPage.assertUsernameValid()",
+          "personalInfoPage.setEmail()",
+          "personalInfoPage.assertEmailValid()",
+          "personalInfoPage.setFirstName()",
+          "personalInfoPage.assertFirstNameValid()",
+          "personalInfoPage.setLastName()",
+          "personalInfoPage.assertLastNameValid()",
+          "ApiUtil.createUserWithAdminClient()",
+          "personalInfoPage.clickSave()",
+          "personalInfoPage.alert().assertDanger()",
+          "personalInfoPage.navigateTo()",
+          "personalInfoPage.valuesEqual()"
+        ],
+        "disabledEditUsername()": [
+          "setEditUsernameAllowed()",
+          "personalInfoPage.assertUsernameDisabled()",
+          "personalInfoPage.setValues()",
+          "personalInfoPage.clickSave()",
+          "personalInfoPage.alert().assertSuccess()",
+          "personalInfoPage.navigateTo()",
+          "personalInfoPage.valuesEqual()"
+        ],
+        "setEditUsernameAllowed(value)": [
+          "testRealmResource().toRepresentation()",
+          "RealmRepresentation.setEditUsernameAllowed()",
+          "testRealmResource().update()",
+          "refreshPageAndWaitForLoad()"
+        ]
+      },
+      "internal_method_dependencies": {
+        "updateUserInfo": [
+          "setEditUsernameAllowed"
+        ],
+        "formValidationTest": [
+          "setEditUsernameAllowed"
+        ],
+        "disabledEditUsername": [
+          "setEditUsernameAllowed"
+        ]
+      },
+      "object_creation_dependencies": [
+        "new UserRepresentation()"
+      ],
+      "data_dependencies": [
+        "formValidationTest depends on ApiUtil.createUserWithAdminClient to seed a conflicting user for duplicate-value assertions",
+        "setEditUsernameAllowed depends on the current RealmRepresentation fetched via testRealmResource()"
+      ],
+      "reverse_dependencies": [
+        "JUnit/Arquillian test runner that discovers and executes PersonalInfoTest's @Test methods",
+        "BaseAccountPageTest subclass registry used by the account-console UI test suite"
+      ]
+    }
+  },
+  {
+    "file_name": "ThemeResourceDefinition.java",
+    "description": "FILE PURPOSE AND RESPONSIBILITY: ThemeResourceDefinition defines the WildFly/JBoss management model for the Keycloak subsystem's 'theme' resource, i.e. the <theme> element of the standalone.xml subsystem configuration (staticMaxAge, cacheThemes, cacheTemplates, welcomeTheme, default theme, theme directory, modules list). It registers these attributes with the WildFly management kernel so they can be read/written via the management CLI/console and mapped onto Keycloak's runtime theme configuration. It is a Management Resource Definition within the JBoss/WildFly subsystem extension layer. PACKAGE INFORMATION: org.keycloak.subsystem.server.extension - the WildFly subsystem extension package for the Keycloak server distribution, alongside KeycloakExtension, the Add/Remove handlers, and attribute builders. CLASS STRUCTURE: public class ThemeResourceDefinition extends SimpleResourceDefinition (WildFly controller SPI base class), no additional interfaces. FIELDS: TAG_NAME (public static final String = 'theme') - the XML/management path element name. RESOURCE_NAME (public static final String = 'defaults') - internal singleton resource name. Seven static final SimpleAttributeDefinition constants (STATIC_MAX_AGE, CACHE_THEMES, CACHE_TEMPLATES, WELCOME_THEME, DEFAULT, DIR, and the StringListAttributeDefinition MODULES), each built via SimpleAttributeDefinitionBuilder/ModulesListAttributeBuilder with type, default value, allowExpression and restart-required semantics. ALL_ATTRIBUTES (static final List<AttributeDefinition>) - aggregates all seven attribute definitions, populated in a static block. DEFINITION_LOOKUP (private static final Map<String, AttributeDefinition>) - an XML-name-to-definition index built in a second static block for lookup(). WRITE_ATTR_HANDLER (protected static final ReloadRequiredWriteAttributeHandler) - a shared write-attribute handler that marks the server as requiring reload after any attribute change. CONSTRUCTORS: protected ThemeResourceDefinition() - calls the SimpleResourceDefinition superclass constructor with the 'theme' PathElement, the extension's description resolver, and the singleton ThemeResourceAddHandler/ThemeResourceRemoveHandler instances, wiring this resource definition into the subsystem's add/remove lifecycle. METHODS: registerAttributes(ManagementResourceRegistration) [public, void, @Override] - calls super.registerAttributes() then, for every attribute in ALL_ATTRIBUTES, registers it as a read-write attribute with a null read handler (default behavior) and the shared WRITE_ATTR_HANDLER. lookup(String) [public static, SimpleAttributeDefinition] - returns the attribute definition matching the given XML attribute name from DEFINITION_LOOKUP, cast to SimpleAttributeDefinition. METHOD EXECUTION LOGIC: The class relies almost entirely on static initialization: the first static block populates ALL_ATTRIBUTES in declaration order, the second static block indexes each definition by its XML name into DEFINITION_LOOKUP for O(1) lookup(); registerAttributes then iterates ALL_ATTRIBUTES once per resource registration to wire each attribute into the WildFly management registration, all sharing the single WRITE_ATTR_HANDLER instance since every attribute triggers the same reload-required semantics. DATA FLOW: Input is subsystem XML/management-CLI attribute values parsed elsewhere and mapped onto these AttributeDefinition objects; output is the registered management resource model exposed to the WildFly management API, later read by Keycloak's theme configuration bootstrap code via lookup()/ALL_ATTRIBUTES. OBJECT CREATION: new ArrayList<>() (ALL_ATTRIBUTES), new HashMap<>() (DEFINITION_LOOKUP), SimpleAttributeDefinitionBuilder(...).build() calls for each attribute, new ModulesListAttributeBuilder().build() for MODULES, new ReloadRequiredWriteAttributeHandler(ALL_ATTRIBUTES). EXCEPTION HANDLING: No explicit exception handling; relies on the WildFly controller framework's own validation of attribute definitions and management operations. DESIGN PATTERNS: Builder pattern (SimpleAttributeDefinitionBuilder, ModulesListAttributeBuilder) for constructing immutable attribute definitions; Registry/Index pattern (DEFINITION_LOOKUP map keyed by XML name); Singleton-style shared handler instances (WRITE_ATTR_HANDLER, ThemeResourceAddHandler.INSTANCE, ThemeResourceRemoveHandler.INSTANCE); Template Method via SimpleResourceDefinition's registerAttributes hook. ADVANCED JAVA FEATURES: Multiple static initializer blocks, static final constant fields, fluent builder chains, generics (List<AttributeDefinition>, Map<String, AttributeDefinition>), protected-visibility constructor restricting instantiation to the extension package. RECONSTRUCTION SUMMARY: A regenerated class must remain the WildFly subsystem resource definition for the theme configuration element, exposing the same seven attributes with identical types/defaults/expression-allowance/restart semantics, the same XML-name lookup capability, and the same add/remove handler wiring so the management model and CLI behavior stay compatible.",
+    "imports": [
+      {
+        "import": "org.jboss.as.controller.AttributeDefinition",
+        "library": "Framework dependencies",
+        "purpose": "Common supertype for all management attribute definitions collected in ALL_ATTRIBUTES."
+      },
+      {
+        "import": "org.jboss.as.controller.PathElement",
+        "library": "Framework dependencies",
+        "purpose": "Defines the 'theme' management resource path element."
+      },
+      {
+        "import": "org.jboss.as.controller.ReloadRequiredWriteAttributeHandler",
+        "library": "Framework dependencies",
+        "purpose": "Shared write-attribute handler marking the server reload-required on change."
+      },
+      {
+        "import": "org.jboss.as.controller.SimpleAttributeDefinition",
+        "library": "Framework dependencies",
+        "purpose": "Concrete attribute definition type for the scalar theme attributes."
+      },
+      {
+        "import": "org.jboss.as.controller.SimpleAttributeDefinitionBuilder",
+        "library": "Framework dependencies",
+        "purpose": "Builder used to construct each SimpleAttributeDefinition."
+      },
+      {
+        "import": "org.jboss.as.controller.SimpleResourceDefinition",
+        "library": "Framework dependencies",
+        "purpose": "Base class this class extends to define the theme management resource."
+      },
+      {
+        "import": "org.jboss.as.controller.StringListAttributeDefinition",
+        "library": "Framework dependencies",
+        "purpose": "Attribute definition type for the MODULES list attribute."
+      },
+      {
+        "import": "org.jboss.as.controller.registry.ManagementResourceRegistration",
+        "library": "Framework dependencies",
+        "purpose": "Registration target passed to registerAttributes()."
+      },
+      {
+        "import": "org.jboss.dmr.ModelNode",
+        "library": "Framework dependencies",
+        "purpose": "Represents default attribute values in the WildFly management model."
+      },
+      {
+        "import": "org.jboss.dmr.ModelType",
+        "library": "Framework dependencies",
+        "purpose": "Specifies the data type (LONG, BOOLEAN, STRING) of each attribute."
+      },
+      {
+        "import": "org.keycloak.subsystem.server.attributes.ModulesListAttributeBuilder",
+        "library": "Project classes",
+        "purpose": "Builder used to construct the MODULES StringListAttributeDefinition."
+      },
+      {
+        "import": "java.util.ArrayList",
+        "library": "Java Standard Library",
+        "purpose": "Backs the ALL_ATTRIBUTES list."
+      },
+      {
+        "import": "java.util.HashMap",
+        "library": "Java Standard Library",
+        "purpose": "Backs the DEFINITION_LOOKUP index."
+      },
+      {
+        "import": "java.util.List",
+        "library": "Java Standard Library",
+        "purpose": "Generic list type for ALL_ATTRIBUTES."
+      },
+      {
+        "import": "java.util.Map",
+        "library": "Java Standard Library",
+        "purpose": "Generic map type for DEFINITION_LOOKUP."
+      }
+    ],
+    "dependency": {
+      "package": "org.keycloak.subsystem.server.extension",
+      "inheritance": {
+        "extends": "SimpleResourceDefinition",
+        "interfaces": []
+      },
+      "annotations": [
+        "@Override"
+      ],
+      "external_libraries": [
+        "JBoss/WildFly controller SPI (org.jboss.as.controller)",
+        "JBoss DMR (org.jboss.dmr)"
+      ],
+      "project_classes": [
+        "ModulesListAttributeBuilder",
+        "KeycloakExtension",
+        "ThemeResourceAddHandler",
+        "ThemeResourceRemoveHandler"
+      ],
+      "field_relationships": [
+        "ThemeResourceDefinition depends on SimpleAttributeDefinition through STATIC_MAX_AGE, CACHE_THEMES, CACHE_TEMPLATES, WELCOME_THEME, DEFAULT, DIR",
+        "ThemeResourceDefinition depends on StringListAttributeDefinition through MODULES",
+        "ThemeResourceDefinition depends on ReloadRequiredWriteAttributeHandler through WRITE_ATTR_HANDLER"
+      ],
+      "constructor_relationships": [
+        "ThemeResourceDefinition() requires PathElement, KeycloakExtension's description resolver, ThemeResourceAddHandler.INSTANCE and ThemeResourceRemoveHandler.INSTANCE during initialization via the super() call"
+      ],
+      "method_call_graph": {
+        "registerAttributes(resourceRegistration)": [
+          "super.registerAttributes()",
+          "resourceRegistration.registerReadWriteAttribute()"
+        ],
+        "lookup(name)": [
+          "DEFINITION_LOOKUP.get()"
+        ]
+      },
+      "internal_method_dependencies": {},
+      "object_creation_dependencies": [
+        "new ArrayList<AttributeDefinition>()",
+        "new HashMap<String, AttributeDefinition>()",
+        "new SimpleAttributeDefinitionBuilder(...).build()",
+        "new ModulesListAttributeBuilder().build()",
+        "new ReloadRequiredWriteAttributeHandler(ALL_ATTRIBUTES)",
+        "new ModelNode(...)"
+      ],
+      "data_dependencies": [
+        "registerAttributes depends on ALL_ATTRIBUTES to know which attributes to expose to the management kernel",
+        "lookup depends on DEFINITION_LOOKUP built from each attribute's XML name"
+      ],
+      "reverse_dependencies": [
+        "KeycloakExtension, which registers ThemeResourceDefinition as part of the Keycloak WildFly subsystem",
+        "ThemeResourceAddHandler/ThemeResourceRemoveHandler, which use lookup()/ALL_ATTRIBUTES when applying configuration",
+        "Keycloak server bootstrap code that reads the theme attribute values to configure the ThemeProvider"
+      ]
+    }
+  },
+  {
+    "file_name": "UserCredentialStoreManager.java",
+    "description": "FILE PURPOSE AND RESPONSIBILITY: UserCredentialStoreManager is the central runtime implementation of the UserCredentialManager SPI facade. Its responsibility is to route every credential operation (validate, update, create, remove, disable, authenticate, list disableable types) to the correct backing store or provider: either the local/federated UserCredentialStore for pure CRUD persistence of CredentialModel records, or the ordered chain of registered CredentialProvider/CredentialInputValidator/CredentialInputUpdater/CredentialAuthentication SPI implementations for validation/authentication logic, while also respecting legacy user-federation providers (UserStorageProvider implementations that themselves implement CredentialInputValidator/CredentialInputUpdater) for backwards compatibility. It also implements OnUserCache to propagate cache-population hooks to all registered credential providers. PACKAGE INFORMATION: org.keycloak.credential - the core credential subsystem package that defines CredentialModel, CredentialInput, CredentialProvider and related SPIs; this class is the primary UserCredentialManager implementation wired into KeycloakSession. CLASS STRUCTURE: public class UserCredentialStoreManager implements UserCredentialManager, OnUserCache (no class inheritance beyond Object). FIELDS: session (protected KeycloakSession) - the current session, used to resolve providers/storage. CONSTRUCTORS: UserCredentialStoreManager(KeycloakSession session) - stores the session reference; this is the sole initialization performed. METHODS: getStoreForUser(UserModel) [protected, UserCredentialStore] - returns session.userLocalStorage() cast to UserCredentialStore if the user is local storage, else session.userFederatedStorage(), determining where raw CredentialModel CRUD is delegated. updateCredential(RealmModel, UserModel, CredentialModel) [public, void, @Override] - delegates to the resolved store's updateCredential. createCredential(...) [public, CredentialModel, @Override] - delegates to store.createCredential. removeStoredCredential(...) [public, boolean, @Override] - delegates removal then evicts the user from session.userCache(). getStoredCredentialById/getStoredCredentials/getStoredCredentialsByType/getStoredCredentialByNameAndType/moveCredentialTo [public, @Override] - thin delegations to the resolved store. isValid(RealmModel, UserModel, CredentialInput...) [public, boolean, @Override] - varargs overload delegating to the List-based isValid via Arrays.asList. createCredentialThroughProvider(...) [public, CredentialModel, @Override] - finds the first registered CredentialProvider whose type matches the given CredentialModel's type and delegates credential creation to it, converting the model via getCredentialFromModel first. updateCredentialLabel(...) [public, void, @Override] - fetches the credential, sets its user label, persists via the store, and evicts the user cache entry. isValid(RealmModel, UserModel, List<CredentialInput>) [public, boolean, @Override] - the core validation routine: builds a mutable copy of the inputs to validate, and if the user is not local storage, resolves the federation UserStorageProvider by id and, if it implements CredentialInputValidator and is enabled, removes any input it can validate from the toValidate list; if the user IS local storage but has a federationLink, performs the equivalent validate() call against that linked provider; after that short-circuit, if inputs remain, iterates every registered CredentialInputValidator provider via getCredentialProviders and calls the private validate helper on each; returns true only if all inputs were consumed. validate(RealmModel, UserModel, List<CredentialInput>, CredentialInputValidator) [private, void] - removes from toValidate any input the given validator both supports and successfully validates. getCredentialProviders(KeycloakSession, RealmModel, Class<T>) [public static, List<T>] - iterates all registered CredentialProvider provider factories, filters by Types.supports against the requested SPI interface (CredentialProviderFactory subtype), and resolves+collects matching provider instances. updateCredential(RealmModel, UserModel, CredentialInput) [public, void, @Override] - mirrors the isValid short-circuit structure but for updates: tries the federation/linked provider's CredentialInputUpdater first (returning early on success), then falls back to iterating all registered CredentialInputUpdater providers until one reports success. disableCredentialType(RealmModel, UserModel, String) [public, void, @Override] - same federation-first-then-provider-chain structure, but for disabling a credential type (no boolean success signal; loops through all matching updaters unconditionally after the federation attempt). getDisableableCredentialTypes(RealmModel, UserModel) [public, Set<String>, @Override] - aggregates disableable type names from the federation/linked provider (if applicable) plus all registered CredentialInputUpdater providers into a single Set. isConfiguredFor(RealmModel, UserModel, String) [public, boolean, @Override] - checks the federation/linked provider first, then falls back to isConfiguredLocally. isConfiguredLocally(RealmModel, UserModel, String) [public, boolean, @Override] - checks only the locally registered CredentialInputValidator providers. authenticate(KeycloakSession, RealmModel, CredentialInput) [public, CredentialValidationOutput, @Override] - first tries enabled UserStorageProvider-based CredentialAuthentication implementations, then falls back to registered CredentialProvider-based CredentialAuthentication implementations, returning the first non-null authentication output. onCache(RealmModel, CachedUserModel, UserModel) [public, void, @Override] - propagates the cache-population event to every registered OnUserCache credential provider. close() [public, void, @Override] - empty no-op required by the Provider/Closeable-style contract. METHOD EXECUTION LOGIC: Nearly every mutating/validating method follows the same three-tier resolution pattern: (1) if the user is federated (not local storage), try the specific federation UserStorageProvider by resolved provider id, short-circuiting on success/definitive result while also checking the provider is enabled; (2) else if the local user has a federationLink, perform the equivalent check against that linked provider; (3) regardless, fall back to iterating the full list of registered SPI providers via getCredentialProviders, using Iterator.remove() (isValid/validate) or early-return (updateCredential) or unconditional iteration (disableCredentialType/getDisableableCredentialTypes) depending on the semantics needed. DATA FLOW: Input is RealmModel/UserModel plus CredentialModel/CredentialInput objects or type strings; intermediate objects are List<CredentialInput> toValidate copies, List<T> provider collections resolved via reflection-like SPI lookups, and boolean/Set/CredentialValidationOutput results; output flows back to callers such as authentication flows (isValid/authenticate), credential-management admin endpoints (createCredential/updateCredential/removeStoredCredential/updateCredentialLabel), and the user-cache invalidation subsystem (session.userCache().evict). OBJECT CREATION: new LinkedList<>() (toValidate copies, provider result lists), no direct instantiation of CredentialModel/CredentialInput (those are supplied by callers or providers). EXCEPTION HANDLING: No explicit try/catch blocks; relies on the correctness of provider/store implementations and on defensive instanceof checks (provider instanceof CredentialInputValidator/CredentialInputUpdater/CredentialAuthentication) to avoid ClassCastException, plus explicit unchecked casts guarded by those instanceof checks. DESIGN PATTERNS: Facade pattern (UserCredentialManager SPI facade over multiple stores/providers); Chain-of-Responsibility (federation provider tried first, then the ordered list of registered CredentialProvider-backed validators/updaters, stopping at the first success); Strategy pattern (pluggable CredentialInputValidator/CredentialInputUpdater/CredentialAuthentication implementations selected at runtime); Adapter (getCredentialProviders adapts the generic ProviderFactory list into a strongly-typed list of a requested SPI interface). ADVANCED JAVA FEATURES: Generics with bounded type parameters (public static <T> List<T> getCredentialProviders(..., Class<T> type)), Java Streams (session.getKeycloakSessionFactory().getProviderFactories(...).stream().map().filter().collect(Collectors.toList())), Iterator explicit removal during iteration (Iterator<CredentialInput> it; it.remove()), instanceof pattern checks combined with unchecked casts, varargs (CredentialInput... inputs), raw-type interoperability via Collections.EMPTY_SET. RECONSTRUCTION SUMMARY: A regenerated class must remain the single UserCredentialManager implementation that mediates all credential CRUD/validation/update/disable/authenticate operations across local storage, federated storage, legacy federation providers and the modern CredentialProvider SPI chain, preserving the federation-first-then-chain resolution order and the user-cache eviction side effects on mutation.",
+    "imports": [
+      {
+        "import": "org.keycloak.common.util.reflections.Types",
+        "library": "Project classes",
+        "purpose": "Checks whether a ProviderFactory supports a requested SPI interface type."
+      },
+      {
+        "import": "org.keycloak.models.CredentialValidationOutput",
+        "library": "Project classes",
+        "purpose": "Return type of authenticate(), representing an authentication result."
+      },
+      {
+        "import": "org.keycloak.models.KeycloakSession",
+        "library": "Project classes",
+        "purpose": "Session used to resolve stores, providers, and the user cache."
+      },
+      {
+        "import": "org.keycloak.models.RealmModel",
+        "library": "Project classes",
+        "purpose": "Represents the realm context for all credential operations."
+      },
+      {
+        "import": "org.keycloak.models.UserCredentialManager",
+        "library": "Project classes",
+        "purpose": "SPI interface this class implements, defining the credential management contract."
+      },
+      {
+        "import": "org.keycloak.models.UserModel",
+        "library": "Project classes",
+        "purpose": "Represents the user whose credentials are being managed."
+      },
+      {
+        "import": "org.keycloak.models.cache.CachedUserModel",
+        "library": "Project classes",
+        "purpose": "Represents the cached user delegate passed to onCache()."
+      },
+      {
+        "import": "org.keycloak.models.cache.OnUserCache",
+        "library": "Project classes",
+        "purpose": "SPI interface this class implements to hook into user-cache population."
+      },
+      {
+        "import": "org.keycloak.models.cache.UserCache",
+        "library": "Project classes",
+        "purpose": "Used to evict a user's cache entry after credential mutations."
+      },
+      {
+        "import": "org.keycloak.provider.ProviderFactory",
+        "library": "Project classes",
+        "purpose": "Generic factory type iterated when collecting CredentialProvider implementations."
+      },
+      {
+        "import": "org.keycloak.storage.StorageId",
+        "library": "Project classes",
+        "purpose": "Determines whether a user is local storage and resolves the federation provider id."
+      },
+      {
+        "import": "org.keycloak.storage.UserStorageManager",
+        "library": "Project classes",
+        "purpose": "Resolves and checks enablement of UserStorageProvider instances for federated/linked users."
+      },
+      {
+        "import": "org.keycloak.storage.UserStorageProvider",
+        "library": "Project classes",
+        "purpose": "Represents a legacy federation storage provider potentially implementing credential SPIs."
+      },
+      {
+        "import": "java.util.Arrays",
+        "library": "Java Standard Library",
+        "purpose": "Converts varargs CredentialInput... into a List for the core isValid method."
+      },
+      {
+        "import": "java.util.Collections",
+        "library": "Java Standard Library",
+        "purpose": "Supplies EMPTY_SET for early-return cases in getDisableableCredentialTypes."
+      },
+      {
+        "import": "java.util.HashSet",
+        "library": "Java Standard Library",
+        "purpose": "Backs the aggregated disableable-types Set."
+      },
+      {
+        "import": "java.util.Iterator",
+        "library": "Java Standard Library",
+        "purpose": "Enables in-place removal of validated inputs from the toValidate list."
+      },
+      {
+        "import": "java.util.LinkedList",
+        "library": "Java Standard Library",
+        "purpose": "Backs the mutable toValidate copy and provider result lists."
+      },
+      {
+        "import": "java.util.List",
+        "library": "Java Standard Library",
+        "purpose": "Generic list type used throughout."
+      },
+      {
+        "import": "java.util.Set",
+        "library": "Java Standard Library",
+        "purpose": "Generic set type for disableable credential types."
+      },
+      {
+        "import": "java.util.stream.Collectors",
+        "library": "Java Standard Library",
+        "purpose": "Collects the filtered provider stream into a list in createCredentialThroughProvider."
+      }
+    ],
+    "dependency": {
+      "package": "org.keycloak.credential",
+      "inheritance": {
+        "extends": "",
+        "interfaces": [
+          "UserCredentialManager",
+          "OnUserCache"
+        ]
+      },
+      "annotations": [
+        "@Override"
+      ],
+      "external_libraries": [
+        "Java Streams API"
+      ],
+      "project_classes": [
+        "KeycloakSession",
+        "RealmModel",
+        "UserModel",
+        "CredentialValidationOutput",
+        "CachedUserModel",
+        "OnUserCache",
+        "UserCache",
+        "ProviderFactory",
+        "StorageId",
+        "UserStorageManager",
+        "UserStorageProvider",
+        "UserCredentialStore",
+        "CredentialModel",
+        "CredentialInput",
+        "CredentialProvider",
+        "CredentialProviderFactory",
+        "CredentialInputValidator",
+        "CredentialInputUpdater",
+        "CredentialAuthentication",
+        "Types"
+      ],
+      "field_relationships": [
+        "UserCredentialStoreManager depends on KeycloakSession through the protected field session, used to resolve stores/providers/cache"
+      ],
+      "constructor_relationships": [
+        "UserCredentialStoreManager requires a KeycloakSession during initialization, stored for the lifetime of the manager"
+      ],
+      "method_call_graph": {
+        "getStoreForUser(user)": [
+          "StorageId.isLocalStorage()",
+          "session.userLocalStorage()",
+          "session.userFederatedStorage()"
+        ],
+        "updateCredential(realm, user, cred)": [
+          "getStoreForUser().updateCredential()"
+        ],
+        "removeStoredCredential(realm, user, id)": [
+          "getStoreForUser().removeStoredCredential()",
+          "session.userCache().evict()"
+        ],
+        "createCredentialThroughProvider(realm, user, model)": [
+          "session.getKeycloakSessionFactory().getProviderFactories()",
+          "session.getProvider()",
+          "CredentialProvider.getCredentialFromModel()",
+          "CredentialProvider.createCredential()"
+        ],
+        "updateCredentialLabel(realm, user, id, label)": [
+          "getStoredCredentialById()",
+          "getStoreForUser().updateCredential()",
+          "session.userCache().evict()"
+        ],
+        "isValid(realm, user, inputs...)": [
+          "isValid(realm, user, List)"
+        ],
+        "isValid(realm, user, List<CredentialInput>)": [
+          "StorageId.isLocalStorage()",
+          "StorageId.resolveProviderId()",
+          "UserStorageManager.getStorageProvider()",
+          "UserStorageManager.isStorageProviderEnabled()",
+          "validate()",
+          "getCredentialProviders()"
+        ],
+        "validate(realm, user, toValidate, validator)": [
+          "validator.supportsCredentialType()",
+          "validator.isValid()"
+        ],
+        "getCredentialProviders(session, realm, type)": [
+          "session.getKeycloakSessionFactory().getProviderFactories()",
+          "Types.supports()",
+          "session.getProvider()"
+        ],
+        "updateCredential(realm, user, input)": [
+          "StorageId.isLocalStorage()",
+          "UserStorageManager.getStorageProvider()",
+          "updater.supportsCredentialType()",
+          "updater.updateCredential()",
+          "getCredentialProviders()"
+        ],
+        "disableCredentialType(realm, user, type)": [
+          "UserStorageManager.getStorageProvider()",
+          "updater.disableCredentialType()",
+          "getCredentialProviders()"
+        ],
+        "getDisableableCredentialTypes(realm, user)": [
+          "UserStorageManager.getStorageProvider()",
+          "updater.getDisableableCredentialTypes()",
+          "getCredentialProviders()"
+        ],
+        "isConfiguredFor(realm, user, type)": [
+          "UserStorageManager.getStorageProvider()",
+          "validator.isConfiguredFor()",
+          "isConfiguredLocally()"
+        ],
+        "isConfiguredLocally(realm, user, type)": [
+          "getCredentialProviders()",
+          "validator.isConfiguredFor()"
+        ],
+        "authenticate(session, realm, input)": [
+          "UserStorageManager.getEnabledStorageProviders()",
+          "auth.authenticate()",
+          "getCredentialProviders()"
+        ],
+        "onCache(realm, user, delegate)": [
+          "getCredentialProviders()",
+          "validator.onCache()"
+        ]
+      },
+      "internal_method_dependencies": {
+        "isValid_varargs": [
+          "isValid_list"
+        ],
+        "isValid_list": [
+          "validate",
+          "getCredentialProviders"
+        ],
+        "updateCredential_input": [
+          "getCredentialProviders"
+        ],
+        "disableCredentialType": [
+          "getCredentialProviders"
+        ],
+        "getDisableableCredentialTypes": [
+          "getCredentialProviders"
+        ],
+        "isConfiguredFor": [
+          "isConfiguredLocally"
+        ],
+        "isConfiguredLocally": [
+          "getCredentialProviders"
+        ],
+        "authenticate": [
+          "getCredentialProviders"
+        ],
+        "onCache": [
+          "getCredentialProviders"
+        ],
+        "updateCredentialLabel": [
+          "getStoredCredentialById"
+        ]
+      },
+      "object_creation_dependencies": [
+        "new LinkedList<CredentialInput>()",
+        "new LinkedList<T>()",
+        "new HashSet<String>()"
+      ],
+      "data_dependencies": [
+        "isValid/updateCredential/disableCredentialType/isConfiguredFor depend on UserModel federation state (StorageId, federationLink) to decide which provider chain to consult first",
+        "getCredentialProviders depends on the KeycloakSessionFactory's registered CredentialProvider factories to build type-filtered provider lists"
+      ],
+      "reverse_dependencies": [
+        "KeycloakSession implementations that expose this class as the default UserCredentialManager (session.userCredentialManager())",
+        "Authentication flow executors (AuthenticationProcessor, credential-validating Authenticators) that call isValid/authenticate",
+        "Admin REST credential-management endpoints that call createCredential/updateCredential/removeStoredCredential/updateCredentialLabel",
+        "User cache implementations that invoke onCache() when populating a CachedUserModel"
+      ]
+    }
+  },
+  {
+    "file_name": "UserUpdateProfileContext.java",
+    "description": "FILE PURPOSE AND RESPONSIBILITY: UserUpdateProfileContext is a thin adapter that implements the UpdateProfileContext SPI over a live, already-persisted UserModel, allowing the 'Update Profile' required action and related flows to read/write a user's username/email/name/attributes uniformly whether the context represents an existing user (this class) or a not-yet-created user (a different implementation of the same interface used during registration). It centralizes the realm's editUsernameAllowed policy check as part of the same context object. PACKAGE INFORMATION: org.keycloak.authentication.requiredactions.util - a utility package supporting the required-actions authentication subsystem, specifically the UPDATE_PROFILE required action and any other flow needing a profile-context abstraction. CLASS STRUCTURE: public class UserUpdateProfileContext implements UpdateProfileContext (no class inheritance). FIELDS: realm (private final RealmModel) - supplies the isEditUsernameAllowed() policy flag. user (private final UserModel) - the backing user whose properties/attributes are read and mutated by every interface method. CONSTRUCTORS: UserUpdateProfileContext(RealmModel realm, UserModel user) - assigns both final fields; this is the only way to construct the object, enforcing that a context always has a concrete realm and user. METHODS: isEditUsernameAllowed() [public, boolean, @Override] - delegates to realm.isEditUsernameAllowed(). getUsername()/setUsername(String) [public, @Override] - delegate directly to user.getUsername()/user.setUsername(username). getEmail()/setEmail(String) [public, @Override] - delegate to user.getEmail()/user.setEmail(email). getFirstName()/setFirstName(String) [public, @Override] - delegate to user.getFirstName()/user.setFirstName(firstName). getLastName()/setLastName(String) [public, @Override] - delegate to user.getLastName()/user.setLastName(lastName). getAttributes() [public, Map<String, List<String>>, @Override] - delegates to user.getAttributes(). setSingleAttribute(String, String) [public, void, @Override] - delegates to user.setSingleAttribute(name, value). setAttribute(String, List<String>) [public, void, @Override] - delegates to user.setAttribute(key, value). getFirstAttribute(String) [public, String, @Override] - delegates to user.getFirstAttribute(name). getAttribute(String) [public, List<String>, @Override] - delegates to user.getAttribute(key). METHOD EXECUTION LOGIC: Every method body is a single-line delegation to the corresponding UserModel (or RealmModel, for isEditUsernameAllowed) accessor/mutator; there is no additional validation, transformation, or branching logic anywhere in the class - it is a pure pass-through Adapter. DATA FLOW: Input flows in through interface method parameters (username/email/firstName/lastName/attribute name-value pairs) and is written directly onto the wrapped UserModel; output flows out as direct reads from the same UserModel, with no intermediate transformation objects. OBJECT CREATION: No object creation occurs within this class beyond its own construction; it wraps externally supplied RealmModel/UserModel instances. EXCEPTION HANDLING: No explicit exception handling; any exceptions thrown by the underlying UserModel/RealmModel implementation propagate unchanged to the caller. DESIGN PATTERNS: Adapter pattern - adapts the UserModel/RealmModel domain interfaces to the UpdateProfileContext SPI contract expected by required-action and profile-update flow code, allowing that code to be agnostic of whether it is updating an existing persisted user or a context backed by a different source. ADVANCED JAVA FEATURES: Interface implementation with @Override annotations on every method, generics (Map<String, List<String>>, List<String>), immutable final fields set only via the constructor. RECONSTRUCTION SUMMARY: A regenerated class must remain a minimal, side-effect-free Adapter implementing UpdateProfileContext by delegating every read/write operation directly to a wrapped RealmModel/UserModel pair, introducing no additional business logic, validation, or state beyond the two immutable references.",
+    "imports": [
+      {
+        "import": "org.keycloak.models.RealmModel",
+        "library": "Project classes",
+        "purpose": "Supplies the editUsernameAllowed realm policy flag."
+      },
+      {
+        "import": "org.keycloak.models.UserModel",
+        "library": "Project classes",
+        "purpose": "Backing domain object whose properties/attributes are read and written by every interface method."
+      },
+      {
+        "import": "java.util.List",
+        "library": "Java Standard Library",
+        "purpose": "Generic list type for attribute values."
+      },
+      {
+        "import": "java.util.Map",
+        "library": "Java Standard Library",
+        "purpose": "Generic map type for getAttributes()."
+      }
+    ],
+    "dependency": {
+      "package": "org.keycloak.authentication.requiredactions.util",
+      "inheritance": {
+        "extends": "",
+        "interfaces": [
+          "UpdateProfileContext"
+        ]
+      },
+      "annotations": [
+        "@Override"
+      ],
+      "external_libraries": [],
+      "project_classes": [
+        "RealmModel",
+        "UserModel",
+        "UpdateProfileContext"
+      ],
+      "field_relationships": [
+        "UserUpdateProfileContext depends on RealmModel through the final field realm",
+        "UserUpdateProfileContext depends on UserModel through the final field user"
+      ],
+      "constructor_relationships": [
+        "UserUpdateProfileContext requires RealmModel and UserModel during initialization; both are stored as final fields"
+      ],
+      "method_call_graph": {
+        "isEditUsernameAllowed()": [
+          "realm.isEditUsernameAllowed()"
+        ],
+        "getUsername()": [
+          "user.getUsername()"
+        ],
+        "setUsername(username)": [
+          "user.setUsername()"
+        ],
+        "getEmail()": [
+          "user.getEmail()"
+        ],
+        "setEmail(email)": [
+          "user.setEmail()"
+        ],
+        "getFirstName()": [
+          "user.getFirstName()"
+        ],
+        "setFirstName(firstName)": [
+          "user.setFirstName()"
+        ],
+        "getLastName()": [
+          "user.getLastName()"
+        ],
+        "setLastName(lastName)": [
+          "user.setLastName()"
+        ],
+        "getAttributes()": [
+          "user.getAttributes()"
+        ],
+        "setSingleAttribute(name, value)": [
+          "user.setSingleAttribute()"
+        ],
+        "setAttribute(key, value)": [
+          "user.setAttribute()"
+        ],
+        "getFirstAttribute(name)": [
+          "user.getFirstAttribute()"
+        ],
+        "getAttribute(key)": [
+          "user.getAttribute()"
+        ]
+      },
+      "internal_method_dependencies": {},
+      "object_creation_dependencies": [],
+      "data_dependencies": [
+        "Every accessor/mutator depends directly on the wrapped UserModel's corresponding property or attribute store",
+        "isEditUsernameAllowed depends on the wrapped RealmModel's editUsernameAllowed configuration flag"
+      ],
+      "reverse_dependencies": [
+        "UPDATE_PROFILE required action implementation that constructs a UserUpdateProfileContext for an authenticated user",
+        "Any profile-update form processing code programmed against the UpdateProfileContext interface"
+      ]
+    }
+  }
+]
